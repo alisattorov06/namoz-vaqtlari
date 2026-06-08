@@ -2,8 +2,11 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
+
+# Faqat bitta workflow ishlashi uchun boshqa konflikt workflow lar o'chirilgan.
+# Bu workflow to'g'ridan-to'g'ri APK build qiladi, analyze ishlatmaydi.
 
 jobs:
   build:
@@ -15,29 +18,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Flutter o'rnatish
+      - name: Flutter setup
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
-          cache: true
 
-      - name: Java 17
+      - name: Java setup
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Paketlar
+      - name: Pub get
         run: flutter pub get
 
-      - name: Lokalizatsiya
+      - name: Generate l10n
         run: flutter gen-l10n
 
-      - name: APK build
+      - name: Build APK
         run: flutter build apk --release --split-per-abi
 
-      - name: APK yuklash
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: namoz-vaqtlari-apk
