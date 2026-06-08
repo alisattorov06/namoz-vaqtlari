@@ -30,7 +30,7 @@
         android:label="Namoz Vaqtlari"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:requestLegacyExternalStorage="false"
         android:usesCleartextTraffic="false">
