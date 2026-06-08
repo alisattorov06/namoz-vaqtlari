@@ -36,7 +36,6 @@ dependencies:
   permission_handler: ^11.3.1
 
   # Date/time
-  hijri: ^3.0.1
   intl: ^0.20.2
   timezone: ^0.9.4
   flutter_timezone: ^2.0.0
