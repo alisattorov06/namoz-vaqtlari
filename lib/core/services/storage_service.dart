@@ -9,14 +9,11 @@ class StorageService {
   static const String _keyLocation = 'saved_location';
   static const String _keyTheme = 'theme_mode';
   static const String _keyOnboarded = 'onboarding_done';
-  static const String _keyNotifEnabled = 'notif_enabled';
-  static const String _keyAlarmEnabled = 'alarm_enabled';
   static const String _keyWeeklyCache = 'weekly_cache';
   static const String _keyWeeklyCacheTime = 'weekly_cache_time';
   static const String _keyTasbehCount = 'tasbeh_count';
 
   late SharedPreferences _prefs;
-  late Box<dynamic> _box;
 
   Future<void> init() async {
     await Hive.initFlutter();

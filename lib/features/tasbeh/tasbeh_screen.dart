@@ -65,8 +65,8 @@ class _TasbehScreenState extends State<TasbehScreen>
 
     // Vibration
     if (_vibrateEnabled) {
-      final hasVibrator = await Vibration.hasVibrator() ?? false;
-      if (hasVibrator) {
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator ?? false) {
         Vibration.vibrate(duration: 30, amplitude: 50);
       }
     }
@@ -74,8 +74,8 @@ class _TasbehScreenState extends State<TasbehScreen>
     // Target reached - special vibration
     if (_count % _target == 0 && _count > 0) {
       if (_vibrateEnabled) {
-        final hasVibrator = await Vibration.hasVibrator() ?? false;
-        if (hasVibrator) {
+        final hasVibrator = await Vibration.hasVibrator();
+        if (hasVibrator ?? false) {
           Vibration.vibrate(pattern: [0, 100, 100, 100, 100, 200]);
         }
       }
@@ -101,9 +101,11 @@ class _TasbehScreenState extends State<TasbehScreen>
       ),
     );
     if (confirmed == true) {
-      setState(() => _count = 0);
-      final storage = context.read<StorageService>();
-      await storage.saveTasbehCount(0);
+      if (mounted) {
+        setState(() => _count = 0);
+        final storage = context.read<StorageService>();
+        await storage.saveTasbehCount(0);
+      }
     }
   }
 

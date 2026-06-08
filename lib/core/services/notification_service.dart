@@ -156,6 +156,7 @@ class NotificationService {
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: null,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.wallClockTime,
       );
     } catch (e) {
       debugPrint('Bildirishnoma xatosi: $e');

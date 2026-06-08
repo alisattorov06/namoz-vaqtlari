@@ -262,7 +262,6 @@ class _QiblaScreenState extends State<QiblaScreen>
   }
 
   List<Widget> _buildDirectionLabels() {
-    final labels = {'Sh': 0.0, 'J': pi / 2, 'G': pi, 'G\'': -pi / 2};
     final labels2 = {
       'Sh': (const Offset(0, -115)),
       'J': (const Offset(115, 0)),

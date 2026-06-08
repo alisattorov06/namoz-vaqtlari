@@ -70,8 +70,5 @@ class QiblaProvider extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+
 }

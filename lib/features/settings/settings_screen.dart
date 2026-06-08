@@ -5,7 +5,6 @@ import '../../core/constants/uzbekistan_regions.dart';
 import '../../core/models/location_model.dart';
 import '../../core/providers/prayer_provider.dart';
 import '../../core/providers/theme_provider.dart';
-import '../../core/services/storage_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
