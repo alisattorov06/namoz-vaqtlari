@@ -1,172 +1,249 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/prayer_time_model.dart';
+import 'package:hijri/hijri.dart' as hijri_pkg;
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:namoz_vaqtlari/core/models/location_model.dart';
+import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
 
+/// API xizmati - namoz vaqtlarini olish
+/// API tayyor bo'lganda _baseUrl ni o'zgartirish kerak
 class ApiService {
+  // TODO: API manzilini shu yerga kiriting
+  // Misol: 'https://api.namozvaqtlari.uz/v1'
   static const String _baseUrl = 'https://api.aladhan.com/v1';
 
-  // Method 3 = Muslim World League (O'zbekiston uchun mos)
-  // school=1 = Hanafi (Asr vaqti)
-  static const int _method = 3;
-  static const int _school = 1;
+  // Fallback uchun boshqa API
+  static const String _fallbackUrl = 'https://api.pray.zone/v2';
 
-  /// Bugungi namoz vaqtlarini olish
-  static Future<PrayerTime?> getTodayPrayerTimes({
+  /// Internet mavjudmi
+  Future<bool> hasInternet() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+
+  /// Asosiy API dan bugungi namoz vaqtlarini olish
+  Future<DailyPrayerTimes?> getTodayPrayerTimes({
     required double latitude,
     required double longitude,
+    required LocationModel location,
   }) async {
-    try {
-      final now = DateTime.now();
-      final date = '${now.day.toString().padLeft(2, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}-'
-          '${now.year}';
+    if (!await hasInternet()) {
+      return null;
+    }
 
-      final uri = Uri.parse(
-        '$_baseUrl/timings/$date'
-        '?latitude=$latitude'
-        '&longitude=$longitude'
-        '&method=$_method'
-        '&school=$_school',
+    try {
+      // Aladhan API - dunyo bo'ylab namoz vaqtlari uchun mashhur
+      final url = Uri.parse(
+        '$_baseUrl/timings/${{
+          'latitude': latitude,
+          'longitude': longitude,
+          'method': 3, // Muslim World League
+        }.entries.map((e) => '${e.key}=${e.value}').join('&')}',
       );
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        if (body['code'] == 200) {
-          return PrayerTime.fromJson(body['data'] as Map<String, dynamic>);
-        }
+        final data = jsonDecode(response.body);
+        return _parseAladhanResponse(data, location);
       }
-      return null;
     } catch (e) {
+      // Fallback ga o'tish
+      try {
+        return await _getFromFallback(latitude, longitude, location);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Fallback API
+  Future<DailyPrayerTimes?> _getFromFallback(
+    double lat,
+    double lng,
+    LocationModel location,
+  ) async {
+    try {
+      final today = DateTime.now();
+      final dateStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final url = Uri.parse(
+        '$_fallbackUrl/times/today.json?longitude=$lng&latitude=$lat&elevation=0',
+      );
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return _parsePrayZoneResponse(data, location);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Aladhan API javobini tahlil qilish
+  DailyPrayerTimes? _parseAladhanResponse(
+      Map<String, dynamic> data, LocationModel location) {
+    try {
+      final timings = data['data']['timings'] as Map<String, dynamic>;
+      final date = data['data']['date'] as Map<String, dynamic>;
+      final gregorian = date['gregorian'] as Map<String, dynamic>;
+      final hijri = date['hijri'] as Map<String, dynamic>;
+
+      final today = DateTime.now();
+      final hijriDate = '${hijri['day']} ${hijri['month']['en']} ${hijri['year']}';
+
+      final prayers = [
+        PrayerTime(
+          name: 'Bomdod',
+          time: _parseTime(timings['Fajr'], today),
+        ),
+        PrayerTime(
+          name: 'Quyosh',
+          time: _parseTime(timings['Sunrise'], today),
+          isAlarmEnabled: false,
+        ),
+        PrayerTime(
+          name: 'Peshin',
+          time: _parseTime(timings['Dhuhr'], today),
+        ),
+        PrayerTime(
+          name: 'Asr',
+          time: _parseTime(timings['Asr'], today),
+        ),
+        PrayerTime(
+          name: 'Shom',
+          time: _parseTime(timings['Maghrib'], today),
+        ),
+        PrayerTime(
+          name: 'Xufton',
+          time: _parseTime(timings['Isha'], today),
+        ),
+      ];
+
+      return DailyPrayerTimes(
+        date: today,
+        hijriDate: hijriDate,
+        location: location,
+        prayers: prayers,
+        source: 'api',
+      );
+    } catch (_) {
       return null;
     }
   }
 
-  /// Keyingi 7 kunlik namoz vaqtlarini olish
-  static Future<List<PrayerTime>> getWeeklyPrayerTimes({
+  /// Pray.zone javobini tahlil qilish
+  DailyPrayerTimes? _parsePrayZoneResponse(
+      Map<String, dynamic> data, LocationModel location) {
+    try {
+      final results = data['results'] as List;
+      if (results.isEmpty) return null;
+      final timings = results[0] as Map<String, dynamic>;
+
+      final today = DateTime.now();
+      final hijriDate = Hijri.now().toFormat("dd MMMM yyyy");
+
+      final prayers = [
+        PrayerTime(
+          name: 'Bomdod',
+          time: _parseTime(timings['Fajr'], today),
+        ),
+        PrayerTime(
+          name: 'Quyosh',
+          time: _parseTime(timings['Sunrise'], today),
+          isAlarmEnabled: false,
+        ),
+        PrayerTime(
+          name: 'Peshin',
+          time: _parseTime(timings['Dhuhr'], today),
+        ),
+        PrayerTime(
+          name: 'Asr',
+          time: _parseTime(timings['Asr'], today),
+        ),
+        PrayerTime(
+          name: 'Shom',
+          time: _parseTime(timings['Maghrib'], today),
+        ),
+        PrayerTime(
+          name: 'Xufton',
+          time: _parseTime(timings['Isha'], today),
+        ),
+      ];
+
+      return DailyPrayerTimes(
+        date: today,
+        hijriDate: hijriDate,
+        location: location,
+        prayers: prayers,
+        source: 'api',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Vaqtni parse qilish
+  DateTime _parseTime(String? timeStr, DateTime date) {
+    if (timeStr == null) return date;
+    final cleanTime = timeStr.split(' ')[0]; // "(+05:00)" formatini olib tashlash
+    final parts = cleanTime.split(':');
+    if (parts.length < 2) return date;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+  }
+
+  /// Keyingi 7 kun uchun namoz vaqtlarini olish
+  Future<List<DailyPrayerTimes>> getWeeklyPrayerTimes({
     required double latitude,
     required double longitude,
+    required LocationModel location,
   }) async {
-    final List<PrayerTime> result = [];
-    final now = DateTime.now();
+    final result = <DailyPrayerTimes>[];
 
-    for (int i = 0; i < 7; i++) {
-      final day = now.add(Duration(days: i));
-      final pt = await _getPrayerTimeForDate(
-        latitude: latitude,
-        longitude: longitude,
-        date: day,
-      );
-      if (pt != null) result.add(pt);
+    for (var i = 0; i < 7; i++) {
+      final date = DateTime.now().add(Duration(days: i));
+      try {
+        final url = Uri.parse(
+          '$_baseUrl/timings/${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
+              '?latitude=$latitude&longitude=$longitude&method=3',
+        );
+        final response = await http
+            .get(url, headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final parsed = _parseAladhanResponse(data, location);
+          if (parsed != null) {
+            result.add(parsed);
+          }
+        }
+      } catch (_) {
+        continue;
+      }
     }
 
     return result;
   }
 
-  static Future<PrayerTime?> _getPrayerTimeForDate({
-    required double latitude,
-    required double longitude,
-    required DateTime date,
-  }) async {
-    try {
-      final dateStr = '${date.day.toString().padLeft(2, '0')}-'
-          '${date.month.toString().padLeft(2, '0')}-'
-          '${date.year}';
-
-      final uri = Uri.parse(
-        '$_baseUrl/timings/$dateStr'
-        '?latitude=$latitude'
-        '&longitude=$longitude'
-        '&method=$_method'
-        '&school=$_school',
-      );
-
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        if (body['code'] == 200) {
-          return PrayerTime.fromJson(body['data'] as Map<String, dynamic>);
-        }
-      }
-      return null;
-    } catch (e) {
-      return null;
+  /// Hijriy sanani olish (offset bilan)
+  String getHijriDate({int offsetDays = 0}) {
+    final today = DateTime.now();
+    final h = hijri_pkg.Hijri.fromDate(today);
+    if (offsetDays != 0) {
+      final newDate = today.add(Duration(days: offsetDays));
+      return hijri_pkg.Hijri.fromDate(newDate).toFormat("dd MMMM yyyy");
     }
-  }
-
-  /// Oy bo'yicha barcha vaqtlar (Calendar endpoint)
-  static Future<List<PrayerTime>> getMonthlyCalendar({
-    required double latitude,
-    required double longitude,
-    int? year,
-    int? month,
-  }) async {
-    try {
-      final now = DateTime.now();
-      final y = year ?? now.year;
-      final m = month ?? now.month;
-
-      final uri = Uri.parse(
-        '$_baseUrl/calendar/$y/$m'
-        '?latitude=$latitude'
-        '&longitude=$longitude'
-        '&method=$_method'
-        '&school=$_school',
-      );
-
-      final response = await http.get(uri).timeout(const Duration(seconds: 20));
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        if (body['code'] == 200) {
-          final data = body['data'] as List<dynamic>;
-          return data
-              .map((e) => PrayerTime.fromJson(e as Map<String, dynamic>))
-              .toList();
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  /// Qibla yo'nalishini olish
-  static Future<double?> getQiblaDirection({
-    required double latitude,
-    required double longitude,
-  }) async {
-    try {
-      final uri = Uri.parse(
-        '$_baseUrl/qibla/$latitude/$longitude',
-      );
-
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        if (body['code'] == 200) {
-          final data = body['data'] as Map<String, dynamic>;
-          return (data['direction'] as num).toDouble();
-        }
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// Internet bor-yo'qligini tekshirish
-  static Future<bool> checkConnectivity() async {
-    try {
-      final response = await http
-          .get(Uri.parse('https://api.aladhan.com/v1/status'))
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
+    return h.toFormat("dd MMMM yyyy");
   }
 }

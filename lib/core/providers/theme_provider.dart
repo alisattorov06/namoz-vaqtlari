@@ -1,30 +1,20 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
+import 'package:namoz_vaqtlari/core/services/storage_service.dart';
 
+/// Mavzu boshqaruvchisi
 class ThemeProvider extends ChangeNotifier {
   final StorageService _storage;
-  ThemeMode _themeMode = ThemeMode.system;
 
   ThemeProvider(this._storage) {
-    _load();
+    _loadTheme();
   }
 
+  ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
 
-  String get themeModeLabel {
-    switch (_themeMode) {
-      case ThemeMode.light:
-        return 'Yorug\' rejim';
-      case ThemeMode.dark:
-        return 'Qorong\'u rejim';
-      case ThemeMode.system:
-        return 'Tizim sozlamasi';
-    }
-  }
-
-  void _load() {
-    final saved = _storage.getThemeMode();
-    switch (saved) {
+  void _loadTheme() {
+    final mode = _storage.getThemeMode();
+    switch (mode) {
       case 'light':
         _themeMode = ThemeMode.light;
         break;
@@ -34,22 +24,23 @@ class ThemeProvider extends ChangeNotifier {
       default:
         _themeMode = ThemeMode.system;
     }
+    notifyListeners();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
-    String modeStr;
+    String str;
     switch (mode) {
       case ThemeMode.light:
-        modeStr = 'light';
+        str = 'light';
         break;
       case ThemeMode.dark:
-        modeStr = 'dark';
+        str = 'dark';
         break;
-      default:
-        modeStr = 'system';
+      case ThemeMode.system:
+        str = 'system';
     }
-    await _storage.setThemeMode(modeStr);
+    await _storage.setThemeMode(str);
     notifyListeners();
   }
 }

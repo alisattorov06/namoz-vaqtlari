@@ -1,498 +1,165 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/uzbekistan_regions.dart';
-import '../../core/models/location_model.dart';
-import '../../core/providers/prayer_provider.dart';
-import '../../core/providers/theme_provider.dart';
+import 'package:namoz_vaqtlari/core/constants/app_colors.dart';
+import 'package:namoz_vaqtlari/core/providers/prayer_provider.dart';
+import 'package:namoz_vaqtlari/core/providers/theme_provider.dart';
+import 'package:namoz_vaqtlari/core/services/notification_service.dart';
+import 'package:namoz_vaqtlari/core/services/storage_service.dart';
+import 'package:namoz_vaqtlari/features/about/about_screen.dart';
 
+/// Sozlamalar sahifasi
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final prayer = context.watch<PrayerProvider>();
-    final theme = context.watch<ThemeProvider>();
-
+    final storage = context.read<StorageService>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Sozlamalar'), centerTitle: false),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        children: [
-          // ── Location ──────────────────────────────────────────────────
-          _SectionTitle('📍 Joylashuv'),
-          _SettingsCard(
-            isDark: isDark,
-            children: [
-              _LocationTile(prayer: prayer),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.map_rounded,
-                      color: AppColors.secondary, size: 20),
-                ),
-                title: const Text('Viloyat va tuman tanlash',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(prayer.location.regionName.isNotEmpty
-                    ? prayer.location.regionName
-                    : 'Tanlanmagan'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const LocationSelectorScreen()),
-                ),
-              ),
-            ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF0F7FB), Color(0xFFE8F2E8)],
           ),
-
-          const SizedBox(height: 20),
-
-          // ── Notifications ──────────────────────────────────────────────
-          _SectionTitle('🔔 Bildirishnomalar'),
-          _SettingsCard(
-            isDark: isDark,
-            children: [
-              ..._prayerKeys.map((entry) => Column(
-                    children: [
-                      _NotifTile(
-                        prayerKey: entry['key']!,
-                        name: entry['name']!,
-                        prayer: prayer,
-                      ),
-                      if (entry != _prayerKeys.last)
-                        const Divider(height: 1, indent: 56),
-                    ],
-                  )),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── 5 daqiqa oldin ────────────────────────────────────────────
-          _SectionTitle('⏰ 5 daqiqa oldin xabarnoma'),
-          _SettingsCard(
-            isDark: isDark,
-            children: [
-              ..._prayerKeys.map((entry) => Column(
-                    children: [
-                      _Before5Tile(
-                        prayerKey: entry['key']!,
-                        name: entry['name']!,
-                        prayer: prayer,
-                      ),
-                      if (entry != _prayerKeys.last)
-                        const Divider(height: 1, indent: 56),
-                    ],
-                  )),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Alarm ─────────────────────────────────────────────────────
-          _SectionTitle('🔊 Alarm sozlamalari'),
-          _SettingsCard(
-            isDark: isDark,
-            children: [
-              ..._prayerKeys.map((entry) => Column(
-                    children: [
-                      _AlarmTile(
-                        prayerKey: entry['key']!,
-                        name: entry['name']!,
-                        prayer: prayer,
-                      ),
-                      if (entry != _prayerKeys.last)
-                        const Divider(height: 1, indent: 56),
-                    ],
-                  )),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Theme ─────────────────────────────────────────────────────
-          _SectionTitle('🎨 Dizayn'),
-          _SettingsCard(
-            isDark: isDark,
-            children: [
-              ListTile(
-                leading: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.palette_rounded,
-                      color: AppColors.accent, size: 20),
-                ),
-                title: const Text('Rejim',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(theme.themeModeLabel),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                onTap: () => _showThemeDialog(context, theme),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static final List<Map<String, String>> _prayerKeys = [
-    {'key': 'fajr', 'name': 'Bomdod'},
-    {'key': 'sunrise', 'name': 'Quyosh'},
-    {'key': 'dhuhr', 'name': 'Peshin'},
-    {'key': 'asr', 'name': 'Asr'},
-    {'key': 'maghrib', 'name': 'Shom'},
-    {'key': 'isha', 'name': 'Xufton'},
-  ];
-
-  void _showThemeDialog(BuildContext context, ThemeProvider theme) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rejimni tanlang'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ThemeOption(
-              label: '☀️  Yorug\' rejim',
-              selected: theme.themeMode == ThemeMode.light,
-              onTap: () {
-                theme.setThemeMode(ThemeMode.light);
-                Navigator.pop(ctx);
-              },
-            ),
-            _ThemeOption(
-              label: '🌙  Qorong\'u rejim',
-              selected: theme.themeMode == ThemeMode.dark,
-              onTap: () {
-                theme.setThemeMode(ThemeMode.dark);
-                Navigator.pop(ctx);
-              },
-            ),
-            _ThemeOption(
-              label: '🔄  Tizim sozlamasi',
-              selected: theme.themeMode == ThemeMode.system,
-              onTap: () {
-                theme.setThemeMode(ThemeMode.system);
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Helper Widgets ─────────────────────────────────────────────────────────
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: Theme.of(context).colorScheme.primary,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  final List<Widget> children;
-  final bool isDark;
-  const _SettingsCard({required this.children, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _LocationTile extends StatelessWidget {
-  final PrayerProvider prayer;
-  const _LocationTile({required this.prayer});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.gps_fixed_rounded,
-            color: AppColors.primary, size: 20),
-      ),
-      title: const Text('GPS orqali aniqlash',
-          style: TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(
-        prayer.location.isGps ? 'Faol — ${prayer.location.cityName}' : 'Faol emas',
-      ),
-      trailing: Switch.adaptive(
-        value: prayer.location.isGps,
-        activeColor: AppColors.primary,
-        onChanged: (_) async {
-          final ok = await prayer.useGpsLocation();
-          if (!ok && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('GPS joylashuvni aniqlab bo\'lmadi')),
-            );
-          }
-        },
-      ),
-    );
-  }
-}
-
-class _NotifTile extends StatelessWidget {
-  final String prayerKey, name;
-  final PrayerProvider prayer;
-  const _NotifTile(
-      {required this.prayerKey, required this.name, required this.prayer});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: Switch.adaptive(
-        value: prayer.notifEnabled[prayerKey] ?? true,
-        activeColor: AppColors.primary,
-        onChanged: (v) => prayer.setNotifEnabled(prayerKey, v),
-      ),
-    );
-  }
-}
-
-class _Before5Tile extends StatelessWidget {
-  final String prayerKey, name;
-  final PrayerProvider prayer;
-  const _Before5Tile(
-      {required this.prayerKey, required this.name, required this.prayer});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: Switch.adaptive(
-        value: prayer.before5Enabled[prayerKey] ?? true,
-        activeColor: AppColors.secondary,
-        onChanged: (v) => prayer.setBefore5Enabled(prayerKey, v),
-      ),
-    );
-  }
-}
-
-class _AlarmTile extends StatelessWidget {
-  final String prayerKey, name;
-  final PrayerProvider prayer;
-  const _AlarmTile(
-      {required this.prayerKey, required this.name, required this.prayer});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: Switch.adaptive(
-        value: prayer.alarmEnabled[prayerKey] ?? false,
-        activeColor: AppColors.accent,
-        onChanged: (v) => prayer.setAlarmEnabled(prayerKey, v),
-      ),
-    );
-  }
-}
-
-class _ThemeOption extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _ThemeOption(
-      {required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(label),
-      trailing: selected
-          ? const Icon(Icons.check_rounded, color: AppColors.primary)
-          : null,
-      onTap: onTap,
-    );
-  }
-}
-
-// ── Location Selector ──────────────────────────────────────────────────────
-
-class LocationSelectorScreen extends StatefulWidget {
-  const LocationSelectorScreen({super.key});
-
-  @override
-  State<LocationSelectorScreen> createState() => _LocationSelectorScreenState();
-}
-
-class _LocationSelectorScreenState extends State<LocationSelectorScreen> {
-  String? _selectedRegion;
-  Map<String, dynamic>? _selectedDistrict;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final regions = UzbekistanRegions.regions;
-    final districts = _selectedRegion != null
-        ? UzbekistanRegions.getDistricts(_selectedRegion!)
-        : <Map<String, dynamic>>[];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Joylashuvni tanlang'),
-        centerTitle: false,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                // Regions list
-                Expanded(
-                  flex: 4,
-                  child: Container(
-                    color: isDark
-                        ? AppColors.backgroundDark
-                        : AppColors.backgroundLight,
-                    child: ListView.builder(
-                      itemCount: regions.length,
-                      itemBuilder: (_, i) {
-                        final r = regions[i];
-                        final name = r['name'] as String;
-                        final isSelected = _selectedRegion == name;
-                        return InkWell(
-                          onTap: () => setState(() {
-                            _selectedRegion = name;
-                            _selectedDistrict = null;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppColors.primary.withOpacity(0.1)
-                                  : Colors.transparent,
-                              border: Border(
-                                left: BorderSide(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : Colors.transparent,
-                                  width: 3,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              name,
-                              style: TextStyle(
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                                color: isSelected ? AppColors.primary : null,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        );
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  children: [
+                    _sectionTitle('Mavzu'),
+                    Consumer<ThemeProvider>(
+                      builder: (_, theme, __) => _themeCard(context, theme),
+                    ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Bildirishnomalar'),
+                    _switchTile(
+                      context,
+                      icon: Icons.notifications_active,
+                      title: 'Bildirishnomalarni yoqish',
+                      value: storage.getNotificationsEnabled(),
+                      onChanged: (v) async {
+                        await storage.setNotificationsEnabled(v);
+                        if (v) {
+                          await NotificationService.requestAllPermissions();
+                        }
+                        if (context.mounted) {
+                          await context
+                              .read<PrayerProvider>()
+                              .rescheduleNotifications();
+                        }
                       },
                     ),
-                  ),
-                ),
-
-                // Divider
-                VerticalDivider(width: 1,
-                    color: isDark ? Colors.white12 : Colors.black12),
-
-                // Districts list
-                Expanded(
-                  flex: 5,
-                  child: districts.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Viloyat tanlang',
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppColors.textSecondaryDark
-                                  : AppColors.textSecondaryLight,
+                    _switchTile(
+                      context,
+                      icon: Icons.alarm,
+                      title: 'Vaqtida eslatma',
+                      subtitle: 'Namoz vaqti kirganda bildirishnoma',
+                      value: storage.getAtTimeNotification(),
+                      onChanged: (v) async {
+                        await storage.setAtTimeNotification(v);
+                        if (context.mounted) {
+                          await context
+                              .read<PrayerProvider>()
+                              .rescheduleNotifications();
+                        }
+                      },
+                    ),
+                    _sliderTile(
+                      context,
+                      icon: Icons.timer,
+                      title: 'Oldindan eslatma',
+                      subtitle: 'Namozdan ${storage.getPreNotificationMinutes()} daqiqa oldin',
+                      value: storage.getPreNotificationMinutes().toDouble(),
+                      max: 30,
+                      min: 1,
+                      divisions: 29,
+                      onChanged: (v) async {
+                        await storage.setPreNotificationMinutes(v.toInt());
+                        if (context.mounted) {
+                          await context
+                              .read<PrayerProvider>()
+                              .rescheduleNotifications();
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Ma\'lumotlar'),
+                    _actionTile(
+                      context,
+                      icon: Icons.refresh,
+                      title: 'Ma\'lumotlarni yangilash',
+                      onTap: () => context
+                          .read<PrayerProvider>()
+                          .refreshPrayerTimes(),
+                    ),
+                    _actionTile(
+                      context,
+                      icon: Icons.notifications_active,
+                      title: 'Test bildirishnoma',
+                      onTap: () => NotificationService.showTestNotification(),
+                    ),
+                    _actionTile(
+                      context,
+                      icon: Icons.delete_outline,
+                      title: 'Cache tozalash',
+                      onTap: () async {
+                        await storage.clearCache();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Cache tozalandi'),
+                              behavior: SnackBarBehavior.floating,
                             ),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: districts.length + 1,
-                          itemBuilder: (_, i) {
-                            if (i == 0) {
-                              // Region itself as first item
-                              final region = UzbekistanRegions
-                                  .findRegionByName(_selectedRegion!);
-                              if (region == null) return const SizedBox.shrink();
-                              return _DistrictTile(
-                                name: _selectedRegion!,
-                                subtitle: 'Viloyat markazi',
-                                isSelected: _selectedDistrict == null &&
-                                    _selectedRegion != null,
-                                onTap: () {
-                                  setState(() => _selectedDistrict = null);
-                                  _applyLocation(
-                                    name: _selectedRegion!,
-                                    region: _selectedRegion!,
-                                    lat: (region['lat'] as num).toDouble(),
-                                    lon: (region['lon'] as num).toDouble(),
-                                  );
-                                },
-                              );
-                            }
-                            final d = districts[i - 1];
-                            final name = d['name'] as String;
-                            return _DistrictTile(
-                              name: name,
-                              isSelected: _selectedDistrict?['name'] == name,
-                              onTap: () {
-                                setState(() => _selectedDistrict = d);
-                                _applyLocation(
-                                  name: name,
-                                  region: _selectedRegion!,
-                                  lat: (d['lat'] as num).toDouble(),
-                                  lon: (d['lon'] as num).toDouble(),
-                                );
-                              },
-                            );
-                          },
-                        ),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Boshqa'),
+                    _actionTile(
+                      context,
+                      icon: Icons.info_outline,
+                      title: 'Ilova haqida',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AboutScreen()),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: AppColors.headerGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.settings, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Sozlamalar',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -500,83 +167,174 @@ class _LocationSelectorScreenState extends State<LocationSelectorScreen> {
     );
   }
 
-  Future<void> _applyLocation({
-    required String name,
-    required String region,
-    required double lat,
-    required double lon,
-  }) async {
-    final location = LocationModel(
-      latitude: lat,
-      longitude: lon,
-      cityName: name,
-      regionName: region,
-      isGps: false,
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 16, 0, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
-    await context.read<PrayerProvider>().updateLocation(location);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$name tanlandi'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) Navigator.pop(context);
-    }
   }
-}
 
-class _DistrictTile extends StatelessWidget {
-  final String name;
-  final String? subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-  const _DistrictTile({
-    required this.name,
-    this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
+  Widget _themeCard(BuildContext context, ThemeProvider theme) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _themeOption(theme, 'Yorug\'', ThemeMode.light, Icons.light_mode),
+          _themeOption(theme, 'Qorong\'i', ThemeMode.dark, Icons.dark_mode),
+          _themeOption(theme, 'Tizim', ThemeMode.system, Icons.phone_android),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w400,
-                      color: isSelected ? AppColors.primary : null,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.passed),
-                    ),
-                ],
+  Widget _themeOption(
+      ThemeProvider theme, String label, ThemeMode mode, IconData icon) {
+    final selected = theme.themeMode == mode;
+    return Expanded(
+      child: InkWell(
+        onTap: () => theme.setThemeMode(mode),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Icon(icon,
+                  color: selected ? Colors.white : AppColors.primary,
+                  size: 20),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : AppColors.primary,
+                ),
               ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_rounded,
-                  color: AppColors.primary, size: 18),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _switchTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required bool value,
+    required Function(bool) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: SwitchListTile(
+        secondary: Icon(icon, color: AppColors.primary),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        subtitle: subtitle != null
+            ? Text(subtitle, style: const TextStyle(fontSize: 12))
+            : null,
+        value: value,
+        onChanged: onChanged,
+        activeColor: AppColors.primary,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    );
+  }
+
+  Widget _sliderTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required Function(double) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(subtitle, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: value.toInt().toString(),
+            onChanged: onChanged,
+            activeColor: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.primary),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        trailing:
+            const Icon(Icons.chevron_right, color: AppColors.textSecondaryLight),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

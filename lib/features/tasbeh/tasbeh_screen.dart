@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vibration/vibration.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/services/storage_service.dart';
+import 'package:namoz_vaqtlari/core/constants/app_colors.dart';
+import 'package:namoz_vaqtlari/core/services/storage_service.dart';
 
+/// Tasbeh sanagichi sahifasi
 class TasbehScreen extends StatefulWidget {
   const TasbehScreen({super.key});
 
@@ -13,321 +14,362 @@ class TasbehScreen extends StatefulWidget {
 
 class _TasbehScreenState extends State<TasbehScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _tapCtrl;
-  late Animation<double> _scaleAnim;
-
+  late AnimationController _animController;
   int _count = 0;
-  bool _vibrateEnabled = true;
-  int _selectedDhikr = 0;
-  final int _target = 33;
+  int _index = 0;
+  bool _vibrate = true;
+  int _target = 33;
 
-  final List<Map<String, String>> _dhikrList = [
-    {'name': 'Subhanallah', 'arabic': 'سُبْحَانَ اللَّه', 'meaning': 'Alloh pok va muqaddasdir'},
-    {'name': 'Alhamdulillah', 'arabic': 'الْحَمْدُ لِلَّه', 'meaning': 'Barcha hamdu sanolar Allohga'},
-    {'name': 'Allahu Akbar', 'arabic': 'اللَّهُ أَكْبَر', 'meaning': 'Alloh eng ulugʻdir'},
-    {'name': 'Astaghfirullah', 'arabic': 'أَسْتَغْفِرُ اللَّه', 'meaning': 'Men Allohdan kechirim soʻrayman'},
-    {'name': 'La ilaha illallah', 'arabic': 'لَا إِلَٰهَ إِلَّا اللَّه', 'meaning': 'Allohdan boshqa iloh yoʻq'},
+  final List<TasbehItem> _items = [
+    TasbehItem('Subhanalloh', 'سُبْحَانَ ٱللَّٰهِ'),
+    TasbehItem('Alhamdulillah', 'ٱلْحَمْدُ لِلَّٰهِ'),
+    TasbehItem('Allahu Akbar', 'ٱللَّٰهُ أَكْبَرُ'),
+    TasbehItem('La ilaha illalloh', 'لَا إِلَٰهَ إِلَّا ٱللَّٰهُ'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _tapCtrl = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 120),
-      lowerBound: 0.90,
-      upperBound: 1.0,
-      value: 1.0,
+      duration: const Duration(milliseconds: 200),
+      lowerBound: 0.95,
+      upperBound: 1.05,
     );
-    _scaleAnim = _tapCtrl;
-    _load();
+    final storage = context.read<StorageService>();
+    _count = storage.getTasbehCount();
+    _index = storage.getTasbehIndex();
+    _vibrate = storage.getTasbehVibrate();
+    _target = storage.getTasbehTarget();
   }
 
   @override
   void dispose() {
-    _tapCtrl.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final storage = context.read<StorageService>();
-    setState(() => _count = storage.getTasbehCount());
-  }
-
-  Future<void> _increment() async {
+  void _increment() {
     setState(() => _count++);
-    final storage = context.read<StorageService>();
-    await storage.saveTasbehCount(_count);
-
-    // Tap animation
-    await _tapCtrl.reverse();
-    await _tapCtrl.forward();
-
-    // Vibration
-    if (_vibrateEnabled) {
-      final hasVibrator = await Vibration.hasVibrator();
-      if (hasVibrator) {
-        Vibration.vibrate(duration: 30, amplitude: 50);
-      }
+    _animController.forward(from: 0.95);
+    if (_vibrate) {
+      HapticFeedback.lightImpact();
     }
-
-    // Target reached - special vibration
-    if (_count % _target == 0 && _count > 0) {
-      if (_vibrateEnabled) {
-        final hasVibrator = await Vibration.hasVibrator();
-        if (hasVibrator) {
-          Vibration.vibrate(pattern: [0, 100, 100, 100, 100, 200]);
-        }
-      }
-    }
+    context.read<StorageService>().setTasbehCount(_count);
   }
 
-  Future<void> _reset() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Qayta boshlash'),
-        content: const Text('Tasbehi hisobini nolga sifatlantirasizmi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ha, qayta boshlash'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      if (mounted) {
-        setState(() => _count = 0);
-        final storage = context.read<StorageService>();
-        await storage.saveTasbehCount(0);
-      }
-    }
+  void _reset() {
+    setState(() {
+      _count = 0;
+      _index = (_index + 1) % _items.length;
+    });
+    context.read<StorageService>().setTasbehCount(0);
+    context.read<StorageService>().setTasbehIndex(_index);
+    if (_vibrate) HapticFeedback.mediumImpact();
+  }
+
+  void _changeTarget(int delta) {
+    setState(() {
+      _target = (_target + delta).clamp(1, 1000);
+    });
+    context.read<StorageService>().setTasbehTarget(_target);
+  }
+
+  void _toggleVibrate() {
+    setState(() => _vibrate = !_vibrate);
+    context.read<StorageService>().setTasbehVibrate(_vibrate);
+    if (_vibrate) HapticFeedback.mediumImpact();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final progress = (_count % _target) / _target;
-    final cycles = _count ~/ _target;
-    final currentDhikr = _dhikrList[_selectedDhikr];
-
+    final progress = _count / _target;
+    final current = _items[_index];
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tasbeh'),
-        centerTitle: false,
-        actions: [
-          // Vibration toggle
-          IconButton(
-            icon: Icon(
-              _vibrateEnabled ? Icons.vibration_rounded : Icons.phonelink_erase_rounded,
-              color: _vibrateEnabled ? AppColors.primary : Colors.grey,
-            ),
-            onPressed: () => setState(() => _vibrateEnabled = !_vibrateEnabled),
-            tooltip: 'Vibratsiya',
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF0F7FB), Color(0xFFE8F2E8)],
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _reset,
-            tooltip: 'Qayta boshlash',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Dhikr selector
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _dhikrList.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final selected = _selectedDhikr == i;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedDhikr = i;
-                      _count = 0;
-                    });
-                    context.read<StorageService>().saveTasbehCount(0);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.primary
-                          : (isDark ? AppColors.cardDark : AppColors.cardLight),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _dhikrList[i]['name']!,
-                      style: TextStyle(
-                        color: selected ? Colors.white : null,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Arabic text
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              children: [
-                Text(
-                  currentDhikr['arabic']!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AppColors.accent : AppColors.primary,
-                    height: 1.8,
-                  ),
-                ),
-                Text(
-                  currentDhikr['name']!,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? AppColors.textPrimaryDark
-                        : AppColors.textPrimaryLight,
-                  ),
-                ),
-                Text(
-                  currentDhikr['meaning']!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark
-                        ? AppColors.textSecondaryDark
-                        : AppColors.textSecondaryLight,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Spacer(),
-
-          // Progress ring + count
-          Stack(
-            alignment: Alignment.center,
+        ),
+        child: SafeArea(
+          child: Column(
             children: [
-              SizedBox(
-                width: 180,
-                height: 180,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 8,
-                  backgroundColor: isDark
-                      ? Colors.white.withOpacity(0.08)
-                      : Colors.black.withOpacity(0.06),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(AppColors.accent),
-                  strokeCap: StrokeCap.round,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$_count',
-                    style: TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.w800,
-                      color: isDark
-                          ? AppColors.textPrimaryDark
-                          : AppColors.textPrimaryLight,
-                      height: 1,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (cycles > 0)
-                    Text(
-                      '$cycles × $_target',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w600,
+              _buildHeader(),
+              const SizedBox(height: 20),
+              _buildSelector(),
+              const SizedBox(height: 20),
+              Expanded(
+                child: Center(
+                  child: GestureDetector(
+                    onTap: _increment,
+                    child: AnimatedBuilder(
+                      animation: _animController,
+                      builder: (_, child) {
+                        return Transform.scale(
+                          scale: _animController.value,
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        width: 240,
+                        height: 240,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AppColors.primary, AppColors.primaryDark],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.4),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Progress ring
+                            SizedBox(
+                              width: 220,
+                              height: 220,
+                              child: CircularProgressIndicator(
+                                value: progress.clamp(0, 1),
+                                strokeWidth: 6,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                valueColor: const AlwaysStoppedAnimation(
+                                    AppColors.accent),
+                              ),
+                            ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$_count',
+                                  style: const TextStyle(
+                                    fontSize: 64,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  '/ $_target',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  Text(
-                    '/ $_target',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark
-                          ? AppColors.textSecondaryDark
-                          : AppColors.textSecondaryLight,
-                    ),
                   ),
-                ],
+                ),
               ),
+              _buildArabicText(current.arabic),
+              const SizedBox(height: 16),
+              _buildControls(),
+              const SizedBox(height: 24),
             ],
           ),
+        ),
+      ),
+    );
+  }
 
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: AppColors.headerGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.radio_button_checked,
+                color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Tasbeh',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const Spacer(),
-
-          // Tap button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: GestureDetector(
-                onTap: _increment,
-                child: Container(
-                  width: double.infinity,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.headerGradient,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.add_rounded, color: Colors.white, size: 40),
-                  ),
-                ),
-              ),
+          IconButton(
+            onPressed: _toggleVibrate,
+            icon: Icon(
+              _vibrate ? Icons.vibration : Icons.smartphone,
+              color: _vibrate ? AppColors.primary : Colors.grey,
             ),
           ),
-
-          const SizedBox(height: 32),
-
-          // Reset button
-          TextButton.icon(
-            onPressed: _reset,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Qayta boshlash'),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-            ),
-          ),
-
-          const SizedBox(height: 100),
         ],
       ),
     );
   }
+
+  Widget _buildSelector() {
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _items.length,
+        itemBuilder: (_, i) {
+          final selected = i == _index;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(_items[i].latin),
+              selected: selected,
+              onSelected: (_) {
+                setState(() {
+                  _index = i;
+                  _count = 0;
+                });
+                context.read<StorageService>().setTasbehIndex(i);
+                context.read<StorageService>().setTasbehCount(0);
+              },
+              selectedColor: AppColors.primary,
+              backgroundColor: Theme.of(context).cardColor,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: BorderSide(
+                    color: selected ? AppColors.primary : Colors.transparent),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildArabicText(String arabic) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        arabic,
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildControls() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: _controlButton(
+              icon: Icons.remove,
+              label: '-1',
+              onTap: () => setState(() {
+                if (_count > 0) _count--;
+                context.read<StorageService>().setTasbehCount(_count);
+              }),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: _reset,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tozalash'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _controlButton(
+              icon: Icons.add,
+              label: '+1',
+              onTap: () => _increment(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TasbehItem {
+  final String latin;
+  final String arabic;
+  const TasbehItem(this.latin, this.arabic);
 }

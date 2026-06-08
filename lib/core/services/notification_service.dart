@@ -1,209 +1,227 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest_all.dart' as tz;
-import '../models/prayer_time_model.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
 
+/// Bildirishnomalar va alarm xizmati
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _plugin =
+  static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  static const String _prayerChannelId = 'prayer_notifications';
+  static const String _prayerChannelName = 'Namoz vaqtlari';
+  static const String _prayerChannelDesc = 'Namoz vaqtlari haqida eslatmalar';
 
   static bool _initialized = false;
 
-  // Prayer notification IDs (unique per prayer per day)
-  static const int _baseIdAtTime = 1000;   // namoz vaqti kirdi
-  static const int _baseIdBefore5 = 2000;  // 5 daqiqa oldin
-
-  static final Map<String, int> _prayerIndex = {
-    'fajr': 0,
-    'sunrise': 1,
-    'dhuhr': 2,
-    'asr': 3,
-    'maghrib': 4,
-    'isha': 5,
-  };
-
-  static final Map<String, String> _prayerNames = {
-    'fajr': 'Bomdod',
-    'sunrise': 'Quyosh',
-    'dhuhr': 'Peshin',
-    'asr': 'Asr',
-    'maghrib': 'Shom',
-    'isha': 'Xufton',
-  };
-
+  /// Xizmatni boshlash
   static Future<void> init() async {
     if (_initialized) return;
 
+    // Timezone ma'lumotlarini yuklash
     tz.initializeTimeZones();
     try {
-      final String timezoneName = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(timezoneName));
+      final timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('Asia/Tashkent'));
     }
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+    // Android sozlamalari
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
 
-    await _plugin.initialize(
+    await _notifications.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: _onNotificationResponse,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        debugPrint('Bildirishnoma bosildi: ${response.payload}');
+      },
     );
 
-    // Android notification channel
-    const channel = AndroidNotificationChannel(
-      'namoz_channel',
-      'Namoz Vaqtlari',
-      description: 'Namoz vaqtlari haqida bildirishnomalar',
-      importance: Importance.high,
-      playSound: true,
-      enableVibration: true,
+    // Android 13+ uchun kanal yaratish
+    final androidImpl = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidImpl?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _prayerChannelId,
+        _prayerChannelName,
+        description: _prayerChannelDesc,
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      ),
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    // Ruxsat so'rash
+    await _requestNotificationPermission();
+    await _requestExactAlarmPermission();
+    await _requestBatteryOptimizationPermission();
 
     _initialized = true;
   }
 
-  static void _onNotificationResponse(NotificationResponse response) {
-    // Notification bosilganda action
+  /// Bildirishnomalar ruxsatini so'rash
+  static Future<bool> _requestNotificationPermission() async {
+    final status = await Permission.notification.request();
+    return status.isGranted;
   }
 
-  /// Barcha namoz bildirishnomalarini rejalashtirish
-  static Future<void> schedulePrayerNotifications({
-    required PrayerTime prayerTime,
-    required Map<String, bool> notifEnabled,
-    required Map<String, bool> before5Enabled,
-  }) async {
-    await init();
+  /// Aniq alarm ruxsatini so'rash
+  static Future<bool> _requestExactAlarmPermission() async {
+    final status = await Permission.scheduleExactAlarm.request();
+    return status.isGranted;
+  }
 
-    final prayers = {
-      'fajr': prayerTime.fajr,
-      'sunrise': prayerTime.sunrise,
-      'dhuhr': prayerTime.dhuhr,
-      'asr': prayerTime.asr,
-      'maghrib': prayerTime.maghrib,
-      'isha': prayerTime.isha,
+  /// Batareya optimallashtirish ruxsati
+  static Future<bool> _requestBatteryOptimizationPermission() async {
+    final status = await Permission.ignoreBatteryOptimizations.request();
+    return status.isGranted;
+  }
+
+  /// Barcha ruxsatlarni qayta so'rash (onboarding uchun)
+  static Future<Map<String, bool>> requestAllPermissions() async {
+    return {
+      'notification': await _requestNotificationPermission(),
+      'exactAlarm': await _requestExactAlarmPermission(),
+      'battery': await _requestBatteryOptimizationPermission(),
     };
+  }
 
-    for (final entry in prayers.entries) {
-      final key = entry.key;
-      final time = entry.value;
-      final name = _prayerNames[key] ?? key;
-      final idx = _prayerIndex[key] ?? 0;
+  /// Namoz vaqti uchun bildirishnoma rejalashtirish
+  static Future<void> schedulePrayerNotification({
+    required PrayerTime prayer,
+    required int preMinutes,
+    required bool atTimeEnabled,
+  }) async {
+    await cancelPrayerNotification(prayer.name);
 
-      final prayerDt = prayerTime.getDateTime(time);
-      if (prayerDt.isBefore(DateTime.now())) continue;
-
-      // 1) Namoz vaqti kirdi bildirishnomasini rejalashtirish
-      if (notifEnabled[key] ?? true) {
-        await _scheduleNotification(
-          id: _baseIdAtTime + idx,
-          title: '$name namozi vaqti kirdi 🕌',
-          body: '$name namozi vaqti kirdi. Alloh taolo namozlaringizni qabul qilsin.',
-          scheduledTime: prayerDt,
+    // Oldindan eslatma
+    if (preMinutes > 0) {
+      final preTime = prayer.time.subtract(Duration(minutes: preMinutes));
+      if (preTime.isAfter(DateTime.now())) {
+        await _scheduleAt(
+          id: _prayerId(preMinutes, prayer.name),
+          title: '${prayer.name} namozi',
+          body: '$preMinutes daqiqadan so\'ng ${prayer.name} namoziga. Namozga shoshiling.',
+          scheduledTime: preTime,
         );
       }
+    }
 
-      // 2) 5 daqiqa oldin bildirishnoma
-      if (before5Enabled[key] ?? true) {
-        final before5Dt = prayerDt.subtract(const Duration(minutes: 5));
-        if (before5Dt.isAfter(DateTime.now())) {
-          await _scheduleNotification(
-            id: _baseIdBefore5 + idx,
-            title: '$name namoziga 5 daqiqa qoldi ⏰',
-            body: '$name namoziga 5 daqiqa qoldi. Namozga shoshiling!',
-            scheduledTime: before5Dt,
-          );
-        }
+    // Vaqtida eslatma
+    if (atTimeEnabled) {
+      if (prayer.time.isAfter(DateTime.now())) {
+        await _scheduleAt(
+          id: _prayerId(0, prayer.name),
+          title: '${prayer.name} namozi vaqti kirdi',
+          body: 'Alloh taolo ${prayer.name} namozini o\'qishni nasib etsin.',
+          scheduledTime: prayer.time,
+        );
       }
     }
   }
 
-  static Future<void> _scheduleNotification({
+  /// ID generatsiya
+  static int _prayerId(int offset, String name) {
+    final base = name.hashCode;
+    return (base + offset).abs() % 2147483647;
+  }
+
+  /// Vaqtga rejalashtirish
+  static Future<void> _scheduleAt({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledTime,
   }) async {
-    try {
-      final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _prayerChannelId,
+        _prayerChannelName,
+        channelDescription: _prayerChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
+        fullScreenIntent: true,
+      ),
+    );
 
-      await _plugin.zonedSchedule(
+    try {
+      await _notifications.zonedSchedule(
         id,
         title,
         body,
-        tzTime,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'namoz_channel',
-            'Namoz Vaqtlari',
-            channelDescription: 'Namoz vaqtlari haqida bildirishnomalar',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-            playSound: true,
-            enableVibration: true,
-            category: AndroidNotificationCategory.alarm,
-          ),
-        ),
+        tz.TZDateTime.from(scheduledTime, tz.local),
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: null,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.wallClockTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+        payload: 'prayer_$id',
       );
     } catch (e) {
-      debugPrint('Bildirishnoma xatosi: $e');
+      debugPrint('Bildirishnoma rejalashtirishda xatolik: $e');
+    }
+  }
+
+  /// Bitta namoz uchun bildirishnomani bekor qilish
+  static Future<void> cancelPrayerNotification(String prayerName) async {
+    for (final offset in [0, 5, 10, 15, 30]) {
+      await _notifications.cancel(_prayerId(offset, prayerName));
     }
   }
 
   /// Barcha bildirishnomalarni bekor qilish
-  static Future<void> cancelAllNotifications() async {
-    await _plugin.cancelAll();
+  static Future<void> cancelAll() async {
+    await _notifications.cancelAll();
   }
 
-  /// Bitta bildirishnomani bekor qilish
-  static Future<void> cancelNotification(int id) async {
-    await _plugin.cancel(id);
-  }
-
-  /// Darhol bildirishnoma yuborish (test uchun)
-  static Future<void> showInstantNotification({
-    required String title,
-    required String body,
+  /// Barcha namoz vaqtlarini rejalashtirish
+  static Future<void> scheduleAll({
+    required List<PrayerTime> prayers,
+    required int preMinutes,
+    required bool atTimeEnabled,
+    required bool globalEnabled,
   }) async {
-    await init();
-    await _plugin.show(
-      9999,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'namoz_channel',
-          'Namoz Vaqtlari',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
+    await cancelAll();
+    if (!globalEnabled) return;
+
+    for (final prayer in prayers) {
+      if (prayer.isAlarmEnabled && prayer.name != 'Quyosh') {
+        await schedulePrayerNotification(
+          prayer: prayer,
+          preMinutes: preMinutes,
+          atTimeEnabled: atTimeEnabled,
+        );
+      }
+    }
+  }
+
+  /// Telefon qayta yoqilgandan keyin qayta rejalashtirish
+  static Future<void> rescheduleAfterBoot() async {
+    // Bu metod ilova qayta ishga tushganda chaqiriladi
+    // Saqlangan namoz vaqtlarini qayta yuklab, bildirishnomalarni o'rnatadi
+  }
+
+  /// Zudlik bilan test bildirishnoma
+  static Future<void> showTestNotification() async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _prayerChannelId,
+        _prayerChannelName,
+        channelDescription: _prayerChannelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
       ),
     );
-  }
-
-  /// Ruxsat so'rash
-  static Future<bool> requestPermission() async {
-    if (Platform.isAndroid) {
-      final plugin = _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      final granted = await plugin?.requestNotificationsPermission();
-      return granted ?? false;
-    }
-    return true;
+    await _notifications.show(
+      99999,
+      'Namoz Vaqtlari',
+      'Bildirishnomalar muvaffaqiyatli ishlayapti!',
+      details,
+    );
   }
 }

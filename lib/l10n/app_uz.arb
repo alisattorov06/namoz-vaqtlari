@@ -1,0 +1,12 @@
+{
+  "@@locale": "uz",
+  "appTitle": "Namoz Vaqtlari",
+  "today": "Bugun",
+  "nextPrayer": "Keyingi namoz",
+  "fajr": "Bomdod",
+  "sunrise": "Quyosh",
+  "dhuhr": "Peshin",
+  "asr": "Asr",
+  "maghrib": "Shom",
+  "isha": "Xufton"
+}

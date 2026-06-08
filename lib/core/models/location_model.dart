@@ -1,43 +1,60 @@
+/// Joylashuv modeli
 class LocationModel {
   final double latitude;
   final double longitude;
+  final String? regionId;
+  final String? districtId;
   final String cityName;
-  final String regionName;
+  final String? regionName;
   final bool isGps;
 
-  const LocationModel({
+  LocationModel({
     required this.latitude,
     required this.longitude,
     required this.cityName,
-    required this.regionName,
+    this.regionId,
+    this.districtId,
+    this.regionName,
     this.isGps = false,
   });
-
-  factory LocationModel.fromJson(Map<String, dynamic> json) {
-    return LocationModel(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      cityName: json['cityName'] as String? ?? '',
-      regionName: json['regionName'] as String? ?? '',
-      isGps: json['isGps'] as bool? ?? false,
-    );
-  }
 
   Map<String, dynamic> toJson() => {
         'latitude': latitude,
         'longitude': longitude,
+        'regionId': regionId,
+        'districtId': districtId,
         'cityName': cityName,
         'regionName': regionName,
         'isGps': isGps,
       };
 
-  static const LocationModel tashkent = LocationModel(
-    latitude: 41.2995,
-    longitude: 69.2401,
-    cityName: 'Toshkent',
-    regionName: 'Toshkent shahri',
-  );
+  factory LocationModel.fromJson(Map<String, dynamic> json) => LocationModel(
+        latitude: json['latitude'] as double,
+        longitude: json['longitude'] as double,
+        regionId: json['regionId'] as String?,
+        districtId: json['districtId'] as String?,
+        cityName: json['cityName'] as String,
+        regionName: json['regionName'] as String?,
+        isGps: json['isGps'] as bool? ?? false,
+      );
 
-  @override
-  String toString() => '$cityName ($regionName)';
+  LocationModel copyWith({
+    double? latitude,
+    double? longitude,
+    String? regionId,
+    String? districtId,
+    String? cityName,
+    String? regionName,
+    bool? isGps,
+  }) {
+    return LocationModel(
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      regionId: regionId ?? this.regionId,
+      districtId: districtId ?? this.districtId,
+      cityName: cityName ?? this.cityName,
+      regionName: regionName ?? this.regionName,
+      isGps: isGps ?? this.isGps,
+    );
+  }
 }

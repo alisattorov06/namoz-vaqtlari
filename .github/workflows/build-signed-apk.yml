@@ -1,0 +1,75 @@
+name: Build Signed APK
+
+# Faqat tag qo'yilganda yoki qo'lda ishga tushirilganda
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release turi'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+jobs:
+  build:
+    name: Signed APK yaratish
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v4
+
+      - name: Flutter o'rnatish
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Java 17 o'rnatish
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Paketlarni olish
+        run: flutter pub get
+
+      - name: Lokalizatsiya
+        run: flutter gen-l10n
+
+      - name: Kod tahlili
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Release APK build
+        run: flutter build apk --release
+
+      - name: Release artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: namoz-vaqtlari-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 90
+
+      # GitHub Release yaratish (faqat tag uchun)
+      - name: GitHub Release yaratish
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          generate_release_notes: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

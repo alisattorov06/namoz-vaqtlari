@@ -1,161 +1,116 @@
+/// Ilova ichidagi barcha matnlar - 100% o'zbek tilida
 class AppStrings {
-  // App
+  // Umumiy
   static const String appName = 'Namoz Vaqtlari';
-  static const String appTagline = "O'zbekiston uchun namoz vaqtlari";
+  static const String appDescription = 'O\'zbekiston uchun professional namoz vaqtlari ilovasi';
+  static const String save = 'Saqlash';
+  static const String cancel = 'Bekor qilish';
+  static const String ok = 'OK';
+  static const String yes = 'Ha';
+  static const String no = 'Yo\'q';
+  static const String continueText = 'Davom etish';
+  static const String retry = 'Qayta urinish';
+  static const String loading = 'Yuklanmoqda...';
+
+  // Onboarding
+  static const String welcomeTitle = 'Xush kelibsiz!';
+  static const String welcomeSubtitle = 'Namoz Vaqtlari ilovasiga xush kelibsiz';
+  static const String locationPermissionTitle = 'Joylashuv ruxsati';
+  static const String locationPermissionDesc = 'Sizga eng yaqin namoz vaqtlarini aniqlash uchun joylashuv ruxsati kerak';
+  static const String notificationPermissionTitle = 'Bildirishnomalar ruxsati';
+  static const String notificationPermissionDesc = 'Namoz vaqtlari haqida eslatma olish uchun bildirishnomalarga ruxsat bering';
+  static const String alarmPermissionTitle = 'Aniq ruxsat';
+  static const String alarmPermissionDesc = 'Namoz vaqtlari aniq eslatmasi uchun "Aniq budilnik" ruxsatini bering';
+  static const String batteryPermissionTitle = 'Batareya sozlamalari';
+  static const String batteryPermissionDesc = 'Bildirishnomalar ishonchli ishlashi uchun batareya optimallashtirishni o\'chiring';
 
   // Navigation
-  static const String navHome = 'Asosiy';
+  static const String navHome = 'Bugun';
   static const String navWeekly = 'Haftalik';
   static const String navQibla = 'Qibla';
   static const String navTasbeh = 'Tasbeh';
   static const String navSettings = 'Sozlamalar';
 
-  // Prayer names
-  static const String bomdod = 'Bomdod';
-  static const String quyosh = 'Quyosh';
-  static const String peshin = 'Peshin';
-  static const String asr = 'Asr';
-  static const String shom = 'Shom';
-  static const String xufton = 'Xufton';
-
-  // Prayer descriptions
-  static const String bomdodDesc = 'Tong namozi';
-  static const String quyoshDesc = 'Quyosh chiqishi';
-  static const String peshinDesc = 'Peshin namozi';
-  static const String asrDesc = 'Asr namozi';
-  static const String shomDesc = 'Shom namozi';
-  static const String xuftonDesc = 'Xufton namozi';
-
   // Home
-  static const String nextPrayer = 'Keyingi namoz';
-  static const String todayPrayers = "Bugungi namoz vaqtlari";
-  static const String passed = "O'tib ketdi";
-  static const String active = 'Hozir';
-  static const String remaining = 'qoldi';
-  static const String hour = 'soat';
-  static const String minute = 'daqiqa';
-  static const String second = 'soniya';
-
-  // Weekly
-  static const String weeklySchedule = 'Haftalik jadval';
   static const String today = 'Bugun';
-  static const String tomorrow = 'Ertaga';
+  static const String hijriDate = 'Hijriy sana';
+  static const String gregorianDate = 'Milodiy sana';
+  static const String location = 'Joylashuv';
+  static const String detectLocation = 'Joylashuvni aniqlash';
+  static const String changeLocation = 'Joylashuvni o\'zgartirish';
+  static const String nextPrayer = 'Keyingi namoz';
+  static const String timeRemaining = 'Qolgan vaqt';
+  static const String prayers = 'Namozlar';
+  static const String fajr = 'Bomdod';
+  static const String sunrise = 'Quyosh';
+  static const String dhuhr = 'Peshin';
+  static const String asr = 'Asr';
+  static const String maghrib = 'Shom';
+  static const String isha = 'Xufton';
+  static const String passed = 'O\'tib ketdi';
+  static const String upcoming = 'Yaqin';
+
+  // Haftalik
+  static const String weeklySchedule = 'Haftalik jadval';
+  static const String thisWeek = 'Shu hafta';
+  static const String nextWeek = 'Keyingi hafta';
 
   // Qibla
-  static const String qiblaTitle = 'Qibla yo\'nalishi';
-  static const String qiblaDescription = 'Makkaga yo\'nalish';
-  static const String qiblaSearching = 'Qibla topilmoqda...';
-  static const String qiblaFound = 'Qibla topildi';
-  static const String compassNotAvailable = 'Kompas mavjud emas';
+  static const String qiblaDirection = 'Qibla yo\'nalishi';
+  static const String qibla = 'Qibla';
+  static const String north = 'Shimol';
+  static const String yourLocation = 'Sizning joylashuvingiz';
+  static const String mecca = 'Makka';
 
   // Tasbeh
-  static const String tasbehTitle = 'Tasbeh';
-  static const String tasbehCount = 'son';
-  static const String tasbehReset = 'Qayta boshlash';
-  static const String tasbehVibration = 'Vibratsiya';
-  static const String subhanallah = 'Subhanallah';
+  static const String tasbeh = 'Tasbeh';
+  static const String subhanAllah = 'Subhanalloh';
   static const String alhamdulillah = 'Alhamdulillah';
-  static const String allahuakbar = 'Allahu Akbar';
+  static const String allahuAkbar = 'Allahu Akbar';
+  static const String laIlahaIllallah = 'La ilaha illalloh';
+  static const String reset = 'Tozalash';
+  static const String vibration = 'Vibratsiya';
+  static const String count = 'Sanoq';
 
-  // Settings
-  static const String settingsTitle = 'Sozlamalar';
-  static const String locationSettings = 'Joylashuv';
-  static const String gpsLocation = 'GPS orqali aniqlash';
-  static const String manualLocation = "Qo'lda tanlash";
-  static const String selectRegion = 'Viloyat tanlang';
-  static const String selectDistrict = 'Tuman tanlang';
-  static const String notificationSettings = 'Bildirishnomalar';
-  static const String alarmSettings = 'Alarmlar';
-  static const String alarmSound = 'Alarm ovozi';
-  static const String themeSettings = 'Dizayn';
-  static const String darkMode = 'Qorong\'u rejim';
-  static const String lightMode = 'Yorug\' rejim';
-  static const String systemMode = 'Tizim sozlamasi';
+  // Sozlamalar
+  static const String settings = 'Sozlamalar';
+  static const String theme = 'Mavzu';
+  static const String lightMode = 'Yorug\'';
+  static const String darkMode = 'Qorong\'i';
+  static const String systemMode = 'Tizim';
+  static const String notifications = 'Bildirishnomalar';
+  static const String preNotification = 'Oldindan eslatma';
+  static const String enableNotifications = 'Bildirishnomalarni yoqish';
+  static const String atTimeNotification = 'Vaqtida eslatma';
+  static const String preNotificationTime = 'Oldindan eslatma vaqti (daqiqa)';
+  static const String alarmSound = 'Budilnik ovozi';
+  static const String defaultSound = 'Standart';
+  static const String customSound = 'Maxsus';
+  static const String silentMode = 'Sessiz';
+  static const String calculationMethod = 'Hisoblash usuli';
+  static const String aboutApp = 'Ilova haqida';
+  static const String version = 'Versiya';
+  static const String developer = 'Dasturchi';
   static const String language = 'Til';
-  static const String uzbek = "O'zbek";
 
-  // Notifications
-  static const String notifBefore5 = '5 daqiqa oldin';
-  static const String notifAtTime = 'Vaqt kirganda';
-  static const String notifBeforeMsg = 'namoziga 5 daqiqa qoldi. Namozga shoshiling!';
-  static const String notifAtMsg = 'namozi vaqti kirdi.';
+  // Viloyat va tumanlar
+  static const String selectRegion = 'Viloyatni tanlang';
+  static const String selectDistrict = 'Tuman/shaharni tanlang';
+  static const String regions = 'Viloyatlar';
 
   // About
-  static const String aboutTitle = 'Ilova haqida';
-  static const String version = 'Versiya';
-  static const String developer = 'Ishlab chiquvchi';
-  static const String purpose = 'Maqsad';
-  static const String purposeText =
-      "Bu ilova O'zbekiston musulmonlariga namoz vaqtlarini to'g'ri va o'z vaqtida aniqlashda yordam berish uchun yaratilgan.";
+  static const String about = 'Ilova haqida';
+  static const String aboutText = 'Namoz Vaqtlari ilovasi O\'zbekiston foydalanuvchilari uchun maxsus yaratilgan. Bu ilova sizga har kuni aniq namoz vaqtlarini ko\'rsatadi, sizga eslatmalar yuboradi va sizning ibodatlaringizni yengil qiladi.';
+  static const String features = 'Xususiyatlar';
+  static const String feature1 = '• Aniq namoz vaqtlari O\'zbekiston bo\'ylab';
+  static const String feature2 = '• Qibla yo\'nalishini aniqlash';
+  static const String feature3 = '• Tasbeh sanagichi';
+  static const String feature4 = '• Haftalik namoz jadvali';
+  static const String feature5 = '• Bildirishnomalar va budilniklar';
+  static const String feature6 = '• Qorong\'i va yorug\' rejimlar';
 
-  // Permissions
-  static const String permTitle = 'Ruxsatlar';
-  static const String permSubtitle =
-      'Ilovadan to\'liq foydalanish uchun quyidagi ruxsatlarni bering';
-  static const String permLocation = 'Joylashuv';
-  static const String permLocationDesc =
-      'Sizning joylashuvingizga qarab namoz vaqtlarini aniqlash uchun';
-  static const String permNotification = 'Bildirishnomalar';
-  static const String permNotificationDesc =
-      'Namoz vaqtlari haqida eslatmalar olish uchun';
-  static const String permAlarm = 'Aniq vaqt rejimi';
-  static const String permAlarmDesc =
-      'Namoz vaqtlarida aniq signal berish uchun';
-  static const String permBattery = 'Fon rejimi';
-  static const String permBatteryDesc =
-      "Ilova yopiq bo'lganda ham bildirishnomalar ishlashi uchun";
-  static const String permGrant = 'Ruxsat berish';
-  static const String permSkip = "O'tkazib yuborish";
-  static const String permContinue = 'Davom etish';
-  static const String permGranted = 'Berildi';
-
-  // Errors
-  static const String errorNoInternet = 'Internet aloqasi yo\'q';
-  static const String errorLoading = 'Yuklashda xatolik';
-  static const String errorLocation = 'Joylashuv aniqlanmadi';
-  static const String errorTryAgain = 'Qayta urinib ko\'ring';
-  static const String cachedData = "Saqlangan ma'lumotlar ko'rsatilmoqda";
-
-  // Days of week
-  static const List<String> weekdays = [
-    'Dushanba',
-    'Seshanba',
-    'Chorshanba',
-    'Payshanba',
-    'Juma',
-    'Shanba',
-    'Yakshanba',
-  ];
-
-  // Months
-  static const List<String> months = [
-    'Yanvar',
-    'Fevral',
-    'Mart',
-    'Aprel',
-    'May',
-    'Iyun',
-    'Iyul',
-    'Avgust',
-    'Sentabr',
-    'Oktabr',
-    'Noyabr',
-    'Dekabr',
-  ];
-
-  // Hijri months
-  static const List<String> hijriMonths = [
-    'Muharram',
-    'Safar',
-    'Rabiul Avval',
-    'Rabiul Oxir',
-    'Jumadil Avval',
-    'Jumadil Oxir',
-    'Rajab',
-    "Sha'bon",
-    'Ramazon',
-    'Shavvol',
-    "Zul-Qa'da",
-    'Zul-Hijja',
-  ];
+  // Xatoliklar
+  static const String errorNoLocation = 'Joylashuv aniqlanmadi. Iltimos, qo\'lda tanlang.';
+  static const String errorNoInternet = 'Internet aloqasi yo\'q. Saqlangan ma\'lumotlar ko\'rsatilmoqda.';
+  static const String errorLoading = 'Ma\'lumotlarni yuklashda xatolik yuz berdi.';
 }

@@ -1,152 +1,158 @@
 import 'dart:convert';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/prayer_time_model.dart';
-import '../models/location_model.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
+import 'package:namoz_vaqtlari/core/models/location_model.dart';
 
+/// Mahalliy saqlash xizmati
 class StorageService {
-  static const String _prayerBox = 'prayer_times';
-  static const String _keyLocation = 'saved_location';
-  static const String _keyTheme = 'theme_mode';
-  static const String _keyOnboarded = 'onboarding_done';
-  static const String _keyWeeklyCache = 'weekly_cache';
-  static const String _keyWeeklyCacheTime = 'weekly_cache_time';
-  static const String _keyTasbehCount = 'tasbeh_count';
+  static const _prayerBox = 'prayer_times';
+  static const _settingsBox = 'settings';
+
+  static const _keyOnboarding = 'onboarding_done';
+  static const _keyThemeMode = 'theme_mode';
+  static const _keyLocation = 'user_location';
+  static const _keyHijriOffset = 'hijri_offset';
+  static const _keyCalculationMethod = 'calculation_method';
+  static const _keyNotificationsEnabled = 'notifications_enabled';
+  static const _keyPreNotification = 'pre_notification_minutes';
+  static const _keyAtTimeNotification = 'at_time_notification';
+  static const _keyAlarmSound = 'alarm_sound';
+  static const _keyTasbehCount = 'tasbeh_count';
+  static const _keyTasbehIndex = 'tasbeh_index';
+  static const _keyVibrationEnabled = 'vibration_enabled';
+  static const _keyTasbehTarget = 'tasbeh_target';
+  static const _keyTasbehVibrate = 'tasbeh_vibrate';
+  static const _keyTasbehSound = 'tasbeh_sound';
 
   late SharedPreferences _prefs;
+  late Box<String> _prayerCacheBox;
+
   Future<void> init() async {
-    await Hive.initFlutter();
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(PrayerTimeAdapter());
-    }
-    await Hive.openBox(_prayerBox);
     _prefs = await SharedPreferences.getInstance();
+    await Hive.initFlutter();
+    _prayerCacheBox = await Hive.openBox<String>(_prayerBox);
   }
 
-  // ─── Prayer Times Cache ───────────────────────────────────────────────────
+  // Onboarding
+  bool isOnboardingDone() => _prefs.getBool(_keyOnboarding) ?? false;
+  Future<void> setOnboardingDone(bool value) async =>
+      await _prefs.setBool(_keyOnboarding, value);
 
-  Future<void> saveTodayPrayer(PrayerTime pt) async {
-    await _prefs.setString('today_prayer', jsonEncode(pt.toJson()));
-    await _prefs.setString('today_prayer_date', pt.date);
-  }
+  // Theme
+  String getThemeMode() => _prefs.getString(_keyThemeMode) ?? 'system';
+  Future<void> setThemeMode(String mode) async =>
+      await _prefs.setString(_keyThemeMode, mode);
 
-  PrayerTime? getTodayPrayer() {
-    final json = _prefs.getString('today_prayer');
-    if (json == null) return null;
+  // Location
+  LocationModel? getLocation() {
+    final str = _prefs.getString(_keyLocation);
+    if (str == null) return null;
     try {
-      return PrayerTime.fromStoredJson(
-          jsonDecode(json) as Map<String, dynamic>);
+      return LocationModel.fromJson(jsonDecode(str));
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> saveWeeklyPrayers(List<PrayerTime> prayers) async {
-    final encoded = jsonEncode(prayers.map((p) => p.toJson()).toList());
-    await _prefs.setString(_keyWeeklyCache, encoded);
-    await _prefs.setInt(
-        _keyWeeklyCacheTime, DateTime.now().millisecondsSinceEpoch);
-  }
-
-  List<PrayerTime> getWeeklyPrayers() {
-    final json = _prefs.getString(_keyWeeklyCache);
-    if (json == null) return [];
-    try {
-      final list = jsonDecode(json) as List<dynamic>;
-      return list
-          .map((e) =>
-              PrayerTime.fromStoredJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  bool isWeeklyCacheValid() {
-    final savedTime = _prefs.getInt(_keyWeeklyCacheTime);
-    if (savedTime == null) return false;
-    final diff = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(savedTime));
-    return diff.inHours < 24;
-  }
-
-  // ─── Location ──────────────────────────────────────────────────────────────
-
-  Future<void> saveLocation(LocationModel location) async {
+  Future<void> setLocation(LocationModel location) async {
     await _prefs.setString(_keyLocation, jsonEncode(location.toJson()));
   }
 
-  LocationModel? getSavedLocation() {
-    final json = _prefs.getString(_keyLocation);
-    if (json == null) return null;
-    try {
-      return LocationModel.fromJson(jsonDecode(json) as Map<String, dynamic>);
-    } catch (_) {
-      return null;
+  // Hijri offset
+  int getHijriOffset() => _prefs.getInt(_keyHijriOffset) ?? 0;
+  Future<void> setHijriOffset(int offset) async =>
+      await _prefs.setInt(_keyHijriOffset, offset);
+
+  // Calculation method
+  String getCalculationMethod() =>
+      _prefs.getString(_keyCalculationMethod) ?? 'MuslimWorldLeague';
+  Future<void> setCalculationMethod(String method) async =>
+      await _prefs.setString(_keyCalculationMethod, method);
+
+  // Notifications
+  bool getNotificationsEnabled() =>
+      _prefs.getBool(_keyNotificationsEnabled) ?? true;
+  Future<void> setNotificationsEnabled(bool value) async =>
+      await _prefs.setBool(_keyNotificationsEnabled, value);
+
+  int getPreNotificationMinutes() =>
+      _prefs.getInt(_keyPreNotification) ?? 5;
+  Future<void> setPreNotificationMinutes(int minutes) async =>
+      await _prefs.setInt(_keyPreNotification, minutes);
+
+  bool getAtTimeNotification() =>
+      _prefs.getBool(_keyAtTimeNotification) ?? true;
+  Future<void> setAtTimeNotification(bool value) async =>
+      await _prefs.setBool(_keyAtTimeNotification, value);
+
+  // Alarm sound
+  String getAlarmSound() => _prefs.getString(_keyAlarmSound) ?? 'default';
+  Future<void> setAlarmSound(String sound) async =>
+      await _prefs.setString(_keyAlarmSound, sound);
+
+  // Tasbeh
+  int getTasbehCount() => _prefs.getInt(_keyTasbehCount) ?? 0;
+  Future<void> setTasbehCount(int count) async =>
+      await _prefs.setInt(_keyTasbehCount, count);
+
+  int getTasbehIndex() => _prefs.getInt(_keyTasbehIndex) ?? 0;
+  Future<void> setTasbehIndex(int index) async =>
+      await _prefs.setInt(_keyTasbehIndex, index);
+
+  bool getTasbehVibrate() => _prefs.getBool(_keyTasbehVibrate) ?? true;
+  Future<void> setTasbehVibrate(bool value) async =>
+      await _prefs.setBool(_keyTasbehVibrate, value);
+
+  bool getTasbehSound() => _prefs.getBool(_keyTasbehSound) ?? false;
+  Future<void> setTasbehSound(bool value) async =>
+      await _prefs.setBool(_keyTasbehSound, value);
+
+  int getTasbehTarget() => _prefs.getInt(_keyTasbehTarget) ?? 33;
+  Future<void> setTasbehTarget(int target) async =>
+      await _prefs.setInt(_keyTasbehTarget, target);
+
+  /// Namoz vaqtlarini cache ga saqlash (7 kunlik)
+  Future<void> cachePrayerTimes(List<DailyPrayerTimes> times) async {
+    await _prayerCacheBox.clear();
+    final box = _prayerCacheBox;
+    for (var i = 0; i < times.length; i++) {
+      await box.put('day_$i', jsonEncode(times[i].toJson()));
     }
   }
 
-  // ─── Settings ──────────────────────────────────────────────────────────────
-
-  Future<void> setThemeMode(String mode) async {
-    await _prefs.setString(_keyTheme, mode);
+  /// Cache dan namoz vaqtlarini olish
+  List<DailyPrayerTimes> getCachedPrayerTimes() {
+    final result = <DailyPrayerTimes>[];
+    final box = _prayerCacheBox;
+    for (var i = 0; i < 7; i++) {
+      final str = box.get('day_$i');
+      if (str != null) {
+        try {
+          result.add(DailyPrayerTimes.fromJson(jsonDecode(str)));
+        } catch (_) {}
+      }
+    }
+    return result;
   }
 
-  String getThemeMode() => _prefs.getString(_keyTheme) ?? 'system';
-
-  Future<void> setOnboardingDone(bool done) async {
-    await _prefs.setBool(_keyOnboarded, done);
+  /// Bugungi kun uchun cache dan olish
+  DailyPrayerTimes? getTodayCachedPrayerTimes() {
+    final all = getCachedPrayerTimes();
+    if (all.isEmpty) return null;
+    final today = DateTime.now();
+    for (final d in all) {
+      if (d.date.year == today.year &&
+          d.date.month == today.month &&
+          d.date.day == today.day) {
+        return d;
+      }
+    }
+    return all.first;
   }
 
-  bool isOnboardingDone() => _prefs.getBool(_keyOnboarded) ?? false;
-
-  // ─── Notification Settings ────────────────────────────────────────────────
-
-  Future<void> setNotificationEnabled(String prayerKey, bool enabled) async {
-    await _prefs.setBool('notif_$prayerKey', enabled);
+  /// Cache tozalash
+  Future<void> clearCache() async {
+    await _prayerCacheBox.clear();
   }
-
-  bool isNotificationEnabled(String prayerKey) {
-    return _prefs.getBool('notif_$prayerKey') ?? true;
-  }
-
-  Future<void> setAlarmEnabled(String prayerKey, bool enabled) async {
-    await _prefs.setBool('alarm_$prayerKey', enabled);
-  }
-
-  bool isAlarmEnabled(String prayerKey) {
-    return _prefs.getBool('alarm_$prayerKey') ?? false;
-  }
-
-  Future<void> setNotifBefore5Enabled(String prayerKey, bool enabled) async {
-    await _prefs.setBool('notif_before5_$prayerKey', enabled);
-  }
-
-  bool isNotifBefore5Enabled(String prayerKey) {
-    return _prefs.getBool('notif_before5_$prayerKey') ?? true;
-  }
-
-  // ─── Tasbeh ───────────────────────────────────────────────────────────────
-
-  int getTasbehCount() => _prefs.getInt(_keyTasbehCount) ?? 0;
-
-  Future<void> saveTasbehCount(int count) async {
-    await _prefs.setInt(_keyTasbehCount, count);
-  }
-
-  // ─── Qibla cache ──────────────────────────────────────────────────────────
-
-  Future<void> saveQiblaDirection(double direction) async {
-    await _prefs.setDouble('qibla_direction', direction);
-  }
-
-  double? getQiblaDirection() => _prefs.getDouble('qibla_direction');
-
-  // ─── Alarm sound ─────────────────────────────────────────────────────────
-
-  Future<void> setAlarmSound(String sound) async {
-    await _prefs.setString('alarm_sound', sound);
-  }
-
-  String getAlarmSound() => _prefs.getString('alarm_sound') ?? 'default';
 }

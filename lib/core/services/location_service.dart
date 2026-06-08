@@ -1,35 +1,39 @@
 import 'package:geolocator/geolocator.dart';
-import '../models/location_model.dart';
+import 'package:namoz_vaqtlari/core/models/location_model.dart';
 
+/// Joylashuv xizmati
 class LocationService {
-  /// GPS orqali joriy joylashuvni olish
-  static Future<LocationModel?> getCurrentLocation() async {
+  /// GPS orqali hozirgi joylashuvni aniqlash
+  Future<LocationModel?> getCurrentLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return null;
+      // Xizmat yoqilganmi
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return null;
+      }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      // Ruxsat bor-yo'qligini tekshirish
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return null;
+        if (permission == LocationPermission.denied) {
+          return null;
+        }
       }
-      if (permission == LocationPermission.deniedForever) return null;
+      if (permission == LocationPermission.deniedForever) {
+        return null;
+      }
 
+      // Joylashuvni olish
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 15),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
-
-      // Teskari geocoding - shahar nomini olish
-      final cityName = await _getCityName(position.latitude, position.longitude);
 
       return LocationModel(
         latitude: position.latitude,
         longitude: position.longitude,
-        cityName: cityName,
-        regionName: '',
+        cityName: 'Aniqlangan joylashuv',
         isGps: true,
       );
     } catch (e) {
@@ -37,34 +41,18 @@ class LocationService {
     }
   }
 
-  /// Koordinatalardan shahar nomini olish (fallback)
-  static Future<String> _getCityName(double lat, double lon) async {
-    // Hive ichida placemark ishlatmaymiz, oddiy ism qaytaramiz
-    return 'Mening joylashuvim';
-  }
-
-  /// Joylashuv ruxsati borligini tekshirish
-  static Future<bool> hasLocationPermission() async {
-    final permission = await Geolocator.checkPermission();
+  /// Ruxsat so'rash
+  Future<bool> requestPermission() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
     return permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
   }
 
-  /// Joylashuv xizmati yoqilganligini tekshirish
-  static Future<bool> isLocationServiceEnabled() async {
-    return Geolocator.isLocationServiceEnabled();
-  }
-
-  /// Joylashuv ruxsatini so'rash
-  static Future<bool> requestPermission() async {
-    final permission = await Geolocator.requestPermission();
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
-  }
-
-  /// Ikki nuqta orasidagi masofani hisoblash (km)
-  static double calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
-    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
+  /// GPS yoqilganmi
+  Future<bool> isServiceEnabled() async {
+    return await Geolocator.isLocationServiceEnabled();
   }
 }

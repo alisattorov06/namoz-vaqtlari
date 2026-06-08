@@ -1,11 +1,17 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/providers/prayer_provider.dart';
-import '../../shared/widgets/main_scaffold.dart';
+import 'package:namoz_vaqtlari/core/constants/app_colors.dart';
+import 'package:namoz_vaqtlari/core/constants/app_strings.dart';
+import 'package:namoz_vaqtlari/core/constants/uzbekistan_regions.dart';
+import 'package:namoz_vaqtlari/core/models/location_model.dart';
+import 'package:namoz_vaqtlari/core/services/location_service.dart';
+import 'package:namoz_vaqtlari/core/services/notification_service.dart';
+import 'package:namoz_vaqtlari/core/services/storage_service.dart';
+import 'package:namoz_vaqtlari/core/providers/prayer_provider.dart';
+import 'package:namoz_vaqtlari/shared/widgets/main_scaffold.dart';
 
+/// Birinchi marta kirish - ruxsatlarni so'rash sahifasi
 class PermissionScreen extends StatefulWidget {
   const PermissionScreen({super.key});
 
@@ -13,70 +19,62 @@ class PermissionScreen extends StatefulWidget {
   State<PermissionScreen> createState() => _PermissionScreenState();
 }
 
-class _PermissionScreenState extends State<PermissionScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnim;
+class _PermissionScreenState extends State<PermissionScreen> {
+  int _page = 0;
+  final _locationService = LocationService();
+  bool _isLoading = false;
 
-  final Map<String, bool> _granted = {
-    'location': false,
-    'notification': false,
-    'alarm': false,
-  };
+  Future<void> _requestLocation() async {
+    setState(() => _isLoading = true);
+    try {
+      // GPS yoqilganmi
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showSnack('GPS yoqilmagan. Iltimos, GPS ni yoqing.');
+        setState(() => _isLoading = false);
+        return;
+      }
 
-  bool _loading = false;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
 
-  @override
-  void initState() {
-    super.initState();
-    _fadeController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
-    _fadeController.forward();
-    _checkExisting();
-  }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showSnack('Joylashuv ruxsati berilmadi');
+        setState(() => _isLoading = false);
+        return;
+      }
 
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkExisting() async {
-    final location = await Permission.locationWhenInUse.status;
-    final notif = await Permission.notification.status;
-    final alarm = await Permission.scheduleExactAlarm.status;
-    if (mounted) {
-      setState(() {
-        _granted['location'] = location.isGranted;
-        _granted['notification'] = notif.isGranted;
-        _granted['alarm'] = alarm.isGranted;
-      });
+      final location = await _locationService.getCurrentLocation();
+      if (location != null && mounted) {
+        await context.read<PrayerProvider>().setLocation(location);
+        if (mounted) {
+          setState(() => _isLoading = false);
+          _goToNext();
+        }
+      } else {
+        _showSnack('Joylashuv aniqlanmadi. Iltimos, qo\'lda tanlang.');
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      _showSnack('Xatolik: $e');
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _requestPermission(String key) async {
-    setState(() => _loading = true);
-    switch (key) {
-      case 'location':
-        final s = await Permission.locationWhenInUse.request();
-        setState(() => _granted[key] = s.isGranted);
-        break;
-      case 'notification':
-        final s = await Permission.notification.request();
-        setState(() => _granted[key] = s.isGranted);
-        break;
-      case 'alarm':
-        final s = await Permission.scheduleExactAlarm.request();
-        setState(() => _granted[key] = s.isGranted);
-        break;
+  void _goToNext() {
+    if (_page < 2) {
+      setState(() => _page++);
+    } else {
+      _finish();
     }
-    setState(() => _loading = false);
   }
 
-  Future<void> _continue() async {
-    final provider = context.read<PrayerProvider>();
-    await provider.initialize();
+  Future<void> _finish() async {
+    setState(() => _isLoading = true);
+    await context.read<StorageService>().setOnboardingDone(true);
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScaffold()),
@@ -84,222 +82,526 @@ class _PermissionScreenState extends State<PermissionScreen>
     }
   }
 
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? AppColors.darkHeaderGradient
-                : AppColors.headerGradient,
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                children: [
-                  const Spacer(),
-                  // Icon
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.mosque_rounded,
-                      size: 56,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Namoz Vaqtlari',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ilovadan to\'liq foydalanish uchun\nquyidagi ruxsatlarni bering',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white.withOpacity(0.85),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Permission cards
-                  _PermissionCard(
-                    icon: Icons.location_on_rounded,
-                    title: 'Joylashuv',
-                    description: 'GPS orqali namoz vaqtlarini aniqlash uchun',
-                    isGranted: _granted['location']!,
-                    onTap: _granted['location']!
-                        ? null
-                        : () => _requestPermission('location'),
-                  ),
-                  const SizedBox(height: 12),
-                  _PermissionCard(
-                    icon: Icons.notifications_rounded,
-                    title: 'Bildirishnomalar',
-                    description: 'Namoz vaqtlari haqida eslatmalar olish uchun',
-                    isGranted: _granted['notification']!,
-                    onTap: _granted['notification']!
-                        ? null
-                        : () => _requestPermission('notification'),
-                  ),
-                  const SizedBox(height: 12),
-                  _PermissionCard(
-                    icon: Icons.alarm_rounded,
-                    title: 'Aniq vaqt alarms',
-                    description: 'Namoz vaqtida aniq signal berish uchun',
-                    isGranted: _granted['alarm']!,
-                    onTap: _granted['alarm']!
-                        ? null
-                        : () => _requestPermission('alarm'),
-                  ),
-                  const Spacer(),
-                  // Continue button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _continue,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Text(
-                              'Davom etish',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w700),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _loading ? null : _continue,
-                    child: Text(
-                      'O\'tkazib yuborish',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.primaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  controller: PageController(initialPage: _page),
+                  onPageChanged: (p) => setState(() => _page = p),
+                  children: [
+                    _buildPage1(),
+                    _buildPage2(),
+                    _buildPage3(),
+                  ],
+                ),
               ),
-            ),
+              _buildIndicators(),
+              const SizedBox(height: 24),
+              _buildButtons(),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildPage1() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.mosque,
+              size: 100,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            AppStrings.welcomeTitle,
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            AppStrings.welcomeSubtitle,
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.white.withOpacity(0.9),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 40),
+          _buildFeature(Icons.access_time, 'Aniq namoz vaqtlari'),
+          _buildFeature(Icons.notifications_active, 'Bildirishnomalar va eslatmalar'),
+          _buildFeature(Icons.explore, 'Qibla yo\'nalishi'),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPage2() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.location_on,
+              size: 100,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            'Joylashuvni tanlang',
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aniq namoz vaqtlarini ko\'rsatish uchun joylashuvni aniqlashimiz kerak',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 48),
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _requestLocation,
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : const Icon(Icons.my_location),
+            label: const Text('GPS orqali aniqlash'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _isLoading ? null : _showManualLocationPicker,
+            icon: const Icon(Icons.edit_location_alt, color: Colors.white),
+            label: const Text(
+              'Viloyat va shaharni tanlash',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white, width: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPage3() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_active,
+              size: 100,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            'Bildirishnomalar',
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Namoz vaqtlari haqida o\'z vaqtida xabar berish uchun bizga ruxsat bering',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _buildPermInfo('Bildirishnomalar', Icons.notifications),
+          _buildPermInfo('Aniq budilnik', Icons.alarm),
+          _buildPermInfo('Batareya sozlamalari', Icons.battery_saver),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermInfo(String title, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Icon(Icons.check_circle, color: Colors.white),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeature(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 22),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicators() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(3, (i) {
+        final active = i == _page;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: active ? 28 : 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: active ? Colors.white : Colors.white.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(5),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          if (_page > 0)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => setState(() => _page--),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  'Orqaga',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          if (_page > 0) const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (_page == 2) {
+                        setState(() => _isLoading = true);
+                        await NotificationService.requestAllPermissions();
+                        if (mounted) _finish();
+                      } else if (_page == 1) {
+                        // Joylashuv tanlanmagan bo'lsa, qo'lda tanlash
+                        if (context.read<PrayerProvider>().location == null) {
+                          _showManualLocationPicker();
+                        } else {
+                          _goToNext();
+                        }
+                      } else {
+                        _goToNext();
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : Text(
+                      _page == 2 ? 'Tugatish' : 'Davom etish',
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualLocationPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LocationPickerSheet(
+        onSelected: (loc) async {
+          Navigator.of(context).pop();
+          setState(() => _isLoading = true);
+          await context.read<PrayerProvider>().setLocation(loc);
+          if (mounted) {
+            setState(() => _isLoading = false);
+            _goToNext();
+          }
+        },
+      ),
+    );
+  }
 }
 
-class _PermissionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isGranted;
-  final VoidCallback? onTap;
+/// Joylashuv tanlash sahifasi
+class _LocationPickerSheet extends StatefulWidget {
+  final Function(LocationModel) onSelected;
+  const _LocationPickerSheet({required this.onSelected});
 
-  const _PermissionCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.isGranted,
-    this.onTap,
-  });
+  @override
+  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
+}
+
+class _LocationPickerSheetState extends State<_LocationPickerSheet> {
+  Region? _selectedRegion;
+  District? _selectedDistrict;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(isGranted ? 0.25 : 0.12),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isGranted
-                ? AppColors.accent.withOpacity(0.8)
-                : Colors.white.withOpacity(0.3),
-            width: 1.5,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.9,
+      minChildSize: 0.5,
+      expand: false,
+      builder: (_, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : Colors.white,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppStrings.selectRegion,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: isDark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textPrimaryLight,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _selectedRegion == null
+                    ? _buildRegionList(scrollController)
+                    : _buildDistrictList(scrollController),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRegionList(ScrollController controller) {
+    return ListView.builder(
+      controller: controller,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: UzbekistanRegions.regions.length,
+      itemBuilder: (_, i) {
+        final r = UzbekistanRegions.regions[i];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const Icon(Icons.location_city, color: AppColors.primary),
+            title: Text(r.name),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => setState(() => _selectedRegion = r),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDistrictList(ScrollController controller) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => setState(() {
+                  _selectedRegion = null;
+                  _selectedDistrict = null;
+                }),
+                icon: const Icon(Icons.arrow_back),
+              ),
+              Expanded(
+                child: Text(
+                  _selectedRegion!.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isGranted
-                    ? AppColors.accent.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: isGranted ? AppColors.accent : Colors.white,
-                size: 26,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: isGranted
-                  ? const Icon(Icons.check_circle_rounded,
-                      color: AppColors.accent, size: 28, key: ValueKey('yes'))
-                  : const Icon(Icons.arrow_forward_ios_rounded,
-                      color: Colors.white70, size: 18, key: ValueKey('no')),
-            ),
-          ],
+        Expanded(
+          child: ListView.builder(
+            controller: controller,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _selectedRegion!.districts.length,
+            itemBuilder: (_, i) {
+              final d = _selectedRegion!.districts[i];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.place, color: AppColors.primary),
+                  title: Text(d.name),
+                  trailing: const Icon(Icons.chevron_right),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    final loc = LocationModel(
+                      latitude: d.latitude,
+                      longitude: d.longitude,
+                      regionId: _selectedRegion!.id,
+                      districtId: d.id,
+                      cityName: d.name,
+                      regionName: _selectedRegion!.name,
+                      isGps: false,
+                    );
+                    widget.onSelected(loc);
+                  },
+                ),
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 }
