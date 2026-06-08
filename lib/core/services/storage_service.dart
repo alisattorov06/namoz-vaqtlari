@@ -14,14 +14,12 @@ class StorageService {
   static const String _keyTasbehCount = 'tasbeh_count';
 
   late SharedPreferences _prefs;
-  late Box<dynamic> _box;
-
   Future<void> init() async {
     await Hive.initFlutter();
     if (!Hive.isAdapterRegistered(0)) {
       Hive.registerAdapter(PrayerTimeAdapter());
     }
-    _box = await Hive.openBox(_prayerBox);
+    await Hive.openBox(_prayerBox);
     _prefs = await SharedPreferences.getInstance();
   }
 

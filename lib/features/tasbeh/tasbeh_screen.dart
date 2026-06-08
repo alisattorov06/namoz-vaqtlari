@@ -65,7 +65,7 @@ class _TasbehScreenState extends State<TasbehScreen>
 
     // Vibration
     if (_vibrateEnabled) {
-      final hasVibrator = (await Vibration.hasVibrator()) ?? false;
+      final hasVibrator = await Vibration.hasVibrator();
       if (hasVibrator) {
         Vibration.vibrate(duration: 30, amplitude: 50);
       }
@@ -74,7 +74,7 @@ class _TasbehScreenState extends State<TasbehScreen>
     // Target reached - special vibration
     if (_count % _target == 0 && _count > 0) {
       if (_vibrateEnabled) {
-        final hasVibrator = (await Vibration.hasVibrator()) ?? false;
+        final hasVibrator = await Vibration.hasVibrator();
         if (hasVibrator) {
           Vibration.vibrate(pattern: [0, 100, 100, 100, 100, 200]);
         }
