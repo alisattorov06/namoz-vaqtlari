@@ -6,26 +6,31 @@ import 'package:namoz_vaqtlari/core/models/location_model.dart';
 import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
 
 /// API xizmati - namoz vaqtlarini olish
-/// API tayyor bo'lganda _baseUrl ni o'zgartirish kerak
 class ApiService {
   // TODO: API manzilini shu yerga kiriting
-  // Misol: 'https://api.namozvaqtlari.uz/v1'
   static const String _baseUrl = 'https://api.aladhan.com/v1';
 
-  // Fallback uchun boshqa API
+  // Fallback
   static const String _fallbackUrl = 'https://api.pray.zone/v2';
 
   /// Internet mavjudmi
   Future<bool> hasInternet() async {
-    final result = await Connectivity().checkConnectivity();
-    if (result == ConnectivityResult.none) return false;
-    if (result.contains(ConnectivityResult.none)) {
-      return result.length > 1;
+    try {
+      final result = await Connectivity().checkConnectivity();
+      // result List<ConnectivityResult> bo'lishi mumkin (yangi versiya)
+      // yoki ConnectivityResult bo'lishi mumkin (eski versiya)
+      if (result == ConnectivityResult.none) return false;
+      if (result.contains(ConnectivityResult.none)) {
+        return result.length > 1;
+      }
+      return true;
+    } catch (_) {
+      // Xatolik bo'lsa, urinib ko'ramiz
+      return true;
     }
-    return true;
   }
 
-  /// Asosiy API dan bugungi namoz vaqtlarini olish
+  /// Bugungi namoz vaqtlarini olish
   Future<DailyPrayerTimes?> getTodayPrayerTimes({
     required double latitude,
     required double longitude,
@@ -36,11 +41,9 @@ class ApiService {
     }
 
     try {
-      // Aladhan API - dunyo bo'ylab namoz vaqtlari uchun mashhur
       final url = Uri.parse(
         '$_baseUrl/timings/now?latitude=$latitude&longitude=$longitude&method=3',
       );
-
       final response = await http
           .get(url, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 15));
@@ -50,7 +53,6 @@ class ApiService {
         return _parseAladhanResponse(data, location);
       }
     } catch (e) {
-      // Fallback ga o'tish
       try {
         return await _getFromFallback(latitude, longitude, location);
       } catch (_) {
@@ -60,7 +62,6 @@ class ApiService {
     return null;
   }
 
-  /// Fallback API
   Future<DailyPrayerTimes?> _getFromFallback(
     double lat,
     double lng,
@@ -81,7 +82,6 @@ class ApiService {
     return null;
   }
 
-  /// Aladhan API javobini tahlil qilish
   DailyPrayerTimes? _parseAladhanResponse(
       Map<String, dynamic> data, LocationModel location) {
     try {
@@ -90,41 +90,25 @@ class ApiService {
       final hijri = date['hijri'] as Map<String, dynamic>;
 
       final today = DateTime.now();
-      final hijriDate = '${hijri['day']} ${hijri['month']['en']} ${hijri['year']}';
-
-      final prayers = [
-        PrayerTime(
-          name: 'Bomdod',
-          time: _parseTime(timings['Fajr'], today),
-        ),
-        PrayerTime(
-          name: 'Quyosh',
-          time: _parseTime(timings['Sunrise'], today),
-          isAlarmEnabled: false,
-        ),
-        PrayerTime(
-          name: 'Peshin',
-          time: _parseTime(timings['Dhuhr'], today),
-        ),
-        PrayerTime(
-          name: 'Asr',
-          time: _parseTime(timings['Asr'], today),
-        ),
-        PrayerTime(
-          name: 'Shom',
-          time: _parseTime(timings['Maghrib'], today),
-        ),
-        PrayerTime(
-          name: 'Xufton',
-          time: _parseTime(timings['Isha'], today),
-        ),
-      ];
+      final hijriDate =
+          '${hijri['day']} ${hijri['month']['en']} ${hijri['year']}';
 
       return DailyPrayerTimes(
         date: today,
         hijriDate: hijriDate,
         location: location,
-        prayers: prayers,
+        prayers: [
+          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr'], today)),
+          PrayerTime(
+              name: 'Quyosh',
+              time: _parseTime(timings['Sunrise'], today),
+              isAlarmEnabled: false),
+          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr'], today)),
+          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr'], today)),
+          PrayerTime(
+              name: 'Shom', time: _parseTime(timings['Maghrib'], today)),
+          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha'], today)),
+        ],
         source: 'api',
       );
     } catch (_) {
@@ -132,50 +116,30 @@ class ApiService {
     }
   }
 
-  /// Pray.zone javobini tahlil qilish
   DailyPrayerTimes? _parsePrayZoneResponse(
       Map<String, dynamic> data, LocationModel location) {
     try {
       final results = data['results'] as List;
       if (results.isEmpty) return null;
       final timings = results[0] as Map<String, dynamic>;
-
       final today = DateTime.now();
-      final hijriDate = '${today.day}/${today.month}/${today.year}';
-
-      final prayers = [
-        PrayerTime(
-          name: 'Bomdod',
-          time: _parseTime(timings['Fajr'], today),
-        ),
-        PrayerTime(
-          name: 'Quyosh',
-          time: _parseTime(timings['Sunrise'], today),
-          isAlarmEnabled: false,
-        ),
-        PrayerTime(
-          name: 'Peshin',
-          time: _parseTime(timings['Dhuhr'], today),
-        ),
-        PrayerTime(
-          name: 'Asr',
-          time: _parseTime(timings['Asr'], today),
-        ),
-        PrayerTime(
-          name: 'Shom',
-          time: _parseTime(timings['Maghrib'], today),
-        ),
-        PrayerTime(
-          name: 'Xufton',
-          time: _parseTime(timings['Isha'], today),
-        ),
-      ];
 
       return DailyPrayerTimes(
         date: today,
-        hijriDate: hijriDate,
+        hijriDate: '${today.day}/${today.month}/${today.year}',
         location: location,
-        prayers: prayers,
+        prayers: [
+          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr'], today)),
+          PrayerTime(
+              name: 'Quyosh',
+              time: _parseTime(timings['Sunrise'], today),
+              isAlarmEnabled: false),
+          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr'], today)),
+          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr'], today)),
+          PrayerTime(
+              name: 'Shom', time: _parseTime(timings['Maghrib'], today)),
+          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha'], today)),
+        ],
         source: 'api',
       );
     } catch (_) {
@@ -183,7 +147,6 @@ class ApiService {
     }
   }
 
-  /// Vaqtni parse qilish
   DateTime _parseTime(String? timeStr, DateTime date) {
     if (timeStr == null) return date;
     final cleanTime = timeStr.split(' ')[0];
@@ -198,14 +161,12 @@ class ApiService {
     );
   }
 
-  /// Keyingi 7 kun uchun namoz vaqtlarini olish
   Future<List<DailyPrayerTimes>> getWeeklyPrayerTimes({
     required double latitude,
     required double longitude,
     required LocationModel location,
   }) async {
     final result = <DailyPrayerTimes>[];
-
     for (var i = 0; i < 7; i++) {
       final date = DateTime.now().add(Duration(days: i));
       try {
@@ -220,28 +181,23 @@ class ApiService {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final parsed = _parseAladhanResponse(data, location);
-          if (parsed != null) {
-            result.add(parsed);
-          }
+          if (parsed != null) result.add(parsed);
         }
       } catch (_) {
         continue;
       }
     }
-
     return result;
   }
 
-  /// Hijriy sanani olish
   String getHijriDate({int offsetDays = 0}) {
-    final months = [
+    const months = [
       'Muharram', 'Safar', "Robi'ul-avval", "Robi'ul-oxir",
       'Jumodiyul-avval', 'Jumodiyul-oxir', 'Rajab', "Sha'bon",
       'Ramazon', 'Shavvol', 'Zil-qa\'da', 'Zil-hajja'
     ];
     final today = DateTime.now();
     final date = today.add(Duration(days: offsetDays));
-    // Taxminiy hijri hisoblash (hijri paketi bo'lmasa)
     final julianDay = date.difference(DateTime(622, 7, 16)).inDays;
     final hijriYear = (julianDay / 354.37).floor();
     final dayOfYear = julianDay - (hijriYear * 354);
