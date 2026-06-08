@@ -17,11 +17,12 @@ class ApiService {
 
   /// Internet mavjudmi
   Future<bool> hasInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    final list = connectivityResult is List<ConnectivityResult>
-        ? connectivityResult
-        : <ConnectivityResult>[connectivityResult];
-    return list.any((r) => r != ConnectivityResult.none);
+    final result = await Connectivity().checkConnectivity();
+    if (result == ConnectivityResult.none) return false;
+    if (result.contains(ConnectivityResult.none)) {
+      return result.length > 1;
+    }
+    return true;
   }
 
   /// Asosiy API dan bugungi namoz vaqtlarini olish
