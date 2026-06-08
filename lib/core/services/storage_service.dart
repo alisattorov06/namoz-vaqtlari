@@ -14,6 +14,7 @@ class StorageService {
   static const String _keyTasbehCount = 'tasbeh_count';
 
   late SharedPreferences _prefs;
+  late Box<dynamic> _box;
 
   Future<void> init() async {
     await Hive.initFlutter();
