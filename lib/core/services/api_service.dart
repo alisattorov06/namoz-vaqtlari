@@ -18,9 +18,9 @@ class ApiService {
   /// Internet mavjudmi
   Future<bool> hasInternet() async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    final list = connectivityResult is List
+    final list = connectivityResult is List<ConnectivityResult>
         ? connectivityResult
-        : <ConnectivityResult>[connectivityResult as ConnectivityResult];
+        : <ConnectivityResult>[connectivityResult];
     return list.any((r) => r != ConnectivityResult.none);
   }
 

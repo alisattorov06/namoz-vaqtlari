@@ -19,7 +19,6 @@ class StorageService {
   static const _keyAlarmSound = 'alarm_sound';
   static const _keyTasbehCount = 'tasbeh_count';
   static const _keyTasbehIndex = 'tasbeh_index';
-  static const _keyVibrationEnabled = 'vibration_enabled';
   static const _keyTasbehTarget = 'tasbeh_target';
   static const _keyTasbehVibrate = 'tasbeh_vibrate';
   static const _keyTasbehSound = 'tasbeh_sound';
