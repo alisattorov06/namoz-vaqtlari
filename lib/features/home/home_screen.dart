@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hijri/hijri.dart' as hijri_pkg;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:namoz_vaqtlari/core/constants/app_colors.dart';
 import 'package:namoz_vaqtlari/core/constants/app_strings.dart';
 import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
 import 'package:namoz_vaqtlari/core/providers/prayer_provider.dart';
-import 'package:namoz_vaqtlari/features/onboarding/permission_screen.dart' show _LocationPickerSheet;
+import 'package:namoz_vaqtlari/features/onboarding/location_picker_sheet.dart';
 
 /// Bosh sahifa - bugungi namoz vaqtlari
 class HomeScreen extends StatelessWidget {
@@ -24,18 +23,9 @@ class HomeScreen extends StatelessWidget {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(
-                child: _buildHeader(context, provider),
-              ),
-              SliverToBoxAdapter(
-                child: _buildNextPrayerCard(context, provider),
-              ),
-              SliverToBoxAdapter(
-                child: _buildLocationRow(context, provider),
-              ),
-              SliverToBoxAdapter(
-                child: _buildDateCard(context),
-              ),
+              SliverToBoxAdapter(child: _buildHeader(context, provider)),
+              SliverToBoxAdapter(child: _buildNextPrayerCard(context, provider)),
+              SliverToBoxAdapter(child: _buildLocationRow(context, provider)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                 sliver: SliverToBoxAdapter(
@@ -122,9 +112,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildNextPrayerCard(BuildContext context, PrayerProvider provider) {
     final next = provider.nextPrayer;
-    if (next == null) {
-      return const SizedBox.shrink();
-    }
+    if (next == null) return const SizedBox.shrink();
     final timeLeft = provider.timeToNextPrayer ?? Duration.zero;
     return Transform.translate(
       offset: const Offset(0, -32),
@@ -144,26 +132,20 @@ class HomeScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Keyingi namoz',
-                    style: TextStyle(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Keyingi namoz',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -201,11 +183,13 @@ class HomeScreen extends StatelessWidget {
       children: [
         _timeBox(hours.toString().padLeft(2, '0'), 'soat'),
         const SizedBox(width: 8),
-        const Text(':', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+        const Text(':',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
         const SizedBox(width: 8),
         _timeBox(minutes.toString().padLeft(2, '0'), 'daq'),
         const SizedBox(width: 8),
-        const Text(':', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+        const Text(':',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
         const SizedBox(width: 8),
         _timeBox(seconds.toString().padLeft(2, '0'), 'son'),
       ],
@@ -229,10 +213,8 @@ class HomeScreen extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: AppColors.primary),
-          ),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: AppColors.primary)),
         ],
       ),
     );
@@ -286,20 +268,11 @@ class HomeScreen extends StatelessWidget {
               onPressed: () => _showLocationPicker(context),
               icon: const Icon(Icons.edit_location_alt, size: 18),
               label: const Text('O\'zgartirish'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDateCard(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -10),
-      child: const SizedBox.shrink(),
     );
   }
 
@@ -321,16 +294,15 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        ...today.prayers.map((p) => _buildPrayerCard(context, p, now)),
+        ...today.prayers.map((p) => _buildPrayerCard(context, p, now, provider)),
       ],
     );
   }
 
-  Widget _buildPrayerCard(BuildContext context, PrayerTime prayer, DateTime now) {
+  Widget _buildPrayerCard(
+      BuildContext context, PrayerTime prayer, DateTime now, PrayerProvider provider) {
     final isPassed = prayer.time.isBefore(now);
     final isNext = !isPassed && prayer.name != 'Quyosh';
-    final isCurrent = !isPassed && isPassed == false &&
-        prayer.time.difference(now).inMinutes.abs() < 60 && prayer.name != 'Quyosh';
 
     Color textColor = isPassed
         ? AppColors.passed
@@ -440,7 +412,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 if (isPassed)
-                  Text(
+                  const Text(
                     'O\'tib ketdi',
                     style: TextStyle(
                       fontSize: 12,
@@ -469,9 +441,7 @@ class HomeScreen extends StatelessWidget {
                   scale: 0.85,
                   child: Switch(
                     value: prayer.isAlarmEnabled,
-                    onChanged: (v) {
-                      provider.togglePrayerAlarm(prayer.name, v);
-                    },
+                    onChanged: (v) => provider.togglePrayerAlarm(prayer.name, v),
                     activeColor: AppColors.primary,
                   ),
                 ),
@@ -487,7 +457,7 @@ class HomeScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _LocationPickerSheet(
+      builder: (_) => LocationPickerSheet(
         onSelected: (loc) {
           Navigator.of(context).pop();
           context.read<PrayerProvider>().setLocation(loc);
@@ -502,14 +472,18 @@ class HomeScreen extends StatelessWidget {
   }
 
   String _formatHijri() {
-    final h = hijri_pkg.Hijri.now();
     const months = [
       'Muharram', 'Safar', "Robi'ul-avval", "Robi'ul-oxir",
       'Jumodiyul-avval', 'Jumodiyul-oxir', 'Rajab', "Sha'bon",
       'Ramazon', 'Shavvol', 'Zil-qa\'da', 'Zil-hajja'
     ];
-    final monthName = months[h.month - 1];
-    return '${h.day} $monthName ${h.year} hijriy';
+    final today = DateTime.now();
+    final julianDay = today.difference(DateTime(622, 7, 16)).inDays;
+    final hijriYear = (julianDay / 354.37).floor() + 1;
+    final dayOfYear = julianDay - ((hijriYear - 1) * 354);
+    final month = (dayOfYear / 29.5).floor() + 1;
+    final day = (dayOfYear % 29).toInt() + 1;
+    return '$day ${months[(month - 1).clamp(0, 11)]} $hijriYear hijriy';
   }
 }
 
@@ -524,7 +498,7 @@ class _LoadingView extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: AppColors.headerGradient,
               shape: BoxShape.circle,
             ),

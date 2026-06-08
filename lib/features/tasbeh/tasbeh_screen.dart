@@ -68,6 +68,7 @@ class _TasbehScreenState extends State<TasbehScreen>
     if (_vibrate) HapticFeedback.mediumImpact();
   }
 
+  // ignore: unused_element
   void _changeTarget(int delta) {
     setState(() {
       _target = (_target + delta).clamp(1, 1000);

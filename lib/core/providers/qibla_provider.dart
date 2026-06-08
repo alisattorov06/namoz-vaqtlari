@@ -22,8 +22,12 @@ class QiblaProvider extends ChangeNotifier {
   double get qiblaOffset {
     if (_heading == null) return 0;
     double diff = _qiblaDirection - _heading!;
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
+    while (diff > 180) {
+      diff -= 360;
+    }
+    while (diff < -180) {
+      diff += 360;
+    }
     return diff;
   }
 

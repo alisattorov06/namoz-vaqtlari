@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:hijri/hijri.dart' as hijri_pkg;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:namoz_vaqtlari/core/models/location_model.dart';
 import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
@@ -19,7 +18,10 @@ class ApiService {
   /// Internet mavjudmi
   Future<bool> hasInternet() async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    final list = connectivityResult is List
+        ? connectivityResult
+        : <ConnectivityResult>[connectivityResult as ConnectivityResult];
+    return list.any((r) => r != ConnectivityResult.none);
   }
 
   /// Asosiy API dan bugungi namoz vaqtlarini olish
@@ -35,11 +37,7 @@ class ApiService {
     try {
       // Aladhan API - dunyo bo'ylab namoz vaqtlari uchun mashhur
       final url = Uri.parse(
-        '$_baseUrl/timings/${{
-          'latitude': latitude,
-          'longitude': longitude,
-          'method': 3, // Muslim World League
-        }.entries.map((e) => '${e.key}=${e.value}').join('&')}',
+        '$_baseUrl/timings/now?latitude=$latitude&longitude=$longitude&method=3',
       );
 
       final response = await http
@@ -68,9 +66,6 @@ class ApiService {
     LocationModel location,
   ) async {
     try {
-      final today = DateTime.now();
-      final dateStr =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
       final url = Uri.parse(
         '$_fallbackUrl/times/today.json?longitude=$lng&latitude=$lat&elevation=0',
       );
@@ -91,7 +86,6 @@ class ApiService {
     try {
       final timings = data['data']['timings'] as Map<String, dynamic>;
       final date = data['data']['date'] as Map<String, dynamic>;
-      final gregorian = date['gregorian'] as Map<String, dynamic>;
       final hijri = date['hijri'] as Map<String, dynamic>;
 
       final today = DateTime.now();
@@ -146,7 +140,7 @@ class ApiService {
       final timings = results[0] as Map<String, dynamic>;
 
       final today = DateTime.now();
-      final hijriDate = Hijri.now().toFormat("dd MMMM yyyy");
+      final hijriDate = '${today.day}/${today.month}/${today.year}';
 
       final prayers = [
         PrayerTime(
@@ -191,7 +185,7 @@ class ApiService {
   /// Vaqtni parse qilish
   DateTime _parseTime(String? timeStr, DateTime date) {
     if (timeStr == null) return date;
-    final cleanTime = timeStr.split(' ')[0]; // "(+05:00)" formatini olib tashlash
+    final cleanTime = timeStr.split(' ')[0];
     final parts = cleanTime.split(':');
     if (parts.length < 2) return date;
     return DateTime(
@@ -214,9 +208,10 @@ class ApiService {
     for (var i = 0; i < 7; i++) {
       final date = DateTime.now().add(Duration(days: i));
       try {
+        final dateStr =
+            '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
         final url = Uri.parse(
-          '$_baseUrl/timings/${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}'
-              '?latitude=$latitude&longitude=$longitude&method=3',
+          '$_baseUrl/timings/$dateStr?latitude=$latitude&longitude=$longitude&method=3',
         );
         final response = await http
             .get(url, headers: {'Accept': 'application/json'})
@@ -236,14 +231,21 @@ class ApiService {
     return result;
   }
 
-  /// Hijriy sanani olish (offset bilan)
+  /// Hijriy sanani olish
   String getHijriDate({int offsetDays = 0}) {
+    final months = [
+      'Muharram', 'Safar', "Robi'ul-avval", "Robi'ul-oxir",
+      'Jumodiyul-avval', 'Jumodiyul-oxir', 'Rajab', "Sha'bon",
+      'Ramazon', 'Shavvol', 'Zil-qa\'da', 'Zil-hajja'
+    ];
     final today = DateTime.now();
-    final h = hijri_pkg.Hijri.fromDate(today);
-    if (offsetDays != 0) {
-      final newDate = today.add(Duration(days: offsetDays));
-      return hijri_pkg.Hijri.fromDate(newDate).toFormat("dd MMMM yyyy");
-    }
-    return h.toFormat("dd MMMM yyyy");
+    final date = today.add(Duration(days: offsetDays));
+    // Taxminiy hijri hisoblash (hijri paketi bo'lmasa)
+    final julianDay = date.difference(DateTime(622, 7, 16)).inDays;
+    final hijriYear = (julianDay / 354.37).floor();
+    final dayOfYear = julianDay - (hijriYear * 354);
+    final month = (dayOfYear / 29.5).floor() + 1;
+    final day = (dayOfYear % 29).toInt() + 1;
+    return '$day ${months[month.clamp(1, 12) - 1]} ${hijriYear + 1} hijriy';
   }
 }

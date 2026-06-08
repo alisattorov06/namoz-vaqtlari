@@ -7,7 +7,6 @@ import 'package:namoz_vaqtlari/core/models/location_model.dart';
 /// Mahalliy saqlash xizmati
 class StorageService {
   static const _prayerBox = 'prayer_times';
-  static const _settingsBox = 'settings';
 
   static const _keyOnboarding = 'onboarding_done';
   static const _keyThemeMode = 'theme_mode';

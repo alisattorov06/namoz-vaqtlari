@@ -3,12 +3,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:namoz_vaqtlari/core/constants/app_colors.dart';
 import 'package:namoz_vaqtlari/core/constants/app_strings.dart';
-import 'package:namoz_vaqtlari/core/constants/uzbekistan_regions.dart';
-import 'package:namoz_vaqtlari/core/models/location_model.dart';
 import 'package:namoz_vaqtlari/core/services/location_service.dart';
 import 'package:namoz_vaqtlari/core/services/notification_service.dart';
 import 'package:namoz_vaqtlari/core/services/storage_service.dart';
 import 'package:namoz_vaqtlari/core/providers/prayer_provider.dart';
+import 'package:namoz_vaqtlari/features/onboarding/location_picker_sheet.dart';
 import 'package:namoz_vaqtlari/shared/widgets/main_scaffold.dart';
 
 /// Birinchi marta kirish - ruxsatlarni so'rash sahifasi
@@ -27,7 +26,6 @@ class _PermissionScreenState extends State<PermissionScreen> {
   Future<void> _requestLocation() async {
     setState(() => _isLoading = true);
     try {
-      // GPS yoqilganmi
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _showSnack('GPS yoqilmagan. Iltimos, GPS ni yoqing.');
@@ -134,11 +132,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
               color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.mosque,
-              size: 100,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.mosque, size: 100, color: Colors.white),
           ),
           const SizedBox(height: 40),
           Text(
@@ -181,11 +175,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
               color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.location_on,
-              size: 100,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.location_on, size: 100, color: Colors.white),
           ),
           const SizedBox(height: 40),
           Text(
@@ -261,11 +251,8 @@ class _PermissionScreenState extends State<PermissionScreen> {
               color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.notifications_active,
-              size: 100,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.notifications_active,
+                size: 100, color: Colors.white),
           ),
           const SizedBox(height: 40),
           Text(
@@ -371,9 +358,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
           if (_page > 0)
             Expanded(
               child: OutlinedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => setState(() => _page--),
+                onPressed: _isLoading ? null : () => setState(() => _page--),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white, width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -400,7 +385,6 @@ class _PermissionScreenState extends State<PermissionScreen> {
                         await NotificationService.requestAllPermissions();
                         if (mounted) _finish();
                       } else if (_page == 1) {
-                        // Joylashuv tanlanmagan bo'lsa, qo'lda tanlash
                         if (context.read<PrayerProvider>().location == null) {
                           _showManualLocationPicker();
                         } else {
@@ -428,9 +412,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                         color: AppColors.primary,
                       ),
                     )
-                  : Text(
-                      _page == 2 ? 'Tugatish' : 'Davom etish',
-                    ),
+                  : Text(_page == 2 ? 'Tugatish' : 'Davom etish'),
             ),
           ),
         ],
@@ -443,7 +425,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _LocationPickerSheet(
+      builder: (_) => LocationPickerSheet(
         onSelected: (loc) async {
           Navigator.of(context).pop();
           setState(() => _isLoading = true);
@@ -454,154 +436,6 @@ class _PermissionScreenState extends State<PermissionScreen> {
           }
         },
       ),
-    );
-  }
-}
-
-/// Joylashuv tanlash sahifasi
-class _LocationPickerSheet extends StatefulWidget {
-  final Function(LocationModel) onSelected;
-  const _LocationPickerSheet({required this.onSelected});
-
-  @override
-  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
-}
-
-class _LocationPickerSheetState extends State<_LocationPickerSheet> {
-  Region? _selectedRegion;
-  District? _selectedDistrict;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      maxChildSize: 0.9,
-      minChildSize: 0.5,
-      expand: false,
-      builder: (_, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDark : Colors.white,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppStrings.selectRegion,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isDark
-                      ? AppColors.textPrimaryDark
-                      : AppColors.textPrimaryLight,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _selectedRegion == null
-                    ? _buildRegionList(scrollController)
-                    : _buildDistrictList(scrollController),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRegionList(ScrollController controller) {
-    return ListView.builder(
-      controller: controller,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: UzbekistanRegions.regions.length,
-      itemBuilder: (_, i) {
-        final r = UzbekistanRegions.regions[i];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: const Icon(Icons.location_city, color: AppColors.primary),
-            title: Text(r.name),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => setState(() => _selectedRegion = r),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDistrictList(ScrollController controller) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => setState(() {
-                  _selectedRegion = null;
-                  _selectedDistrict = null;
-                }),
-                icon: const Icon(Icons.arrow_back),
-              ),
-              Expanded(
-                child: Text(
-                  _selectedRegion!.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            controller: controller,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _selectedRegion!.districts.length,
-            itemBuilder: (_, i) {
-              final d = _selectedRegion!.districts[i];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.place, color: AppColors.primary),
-                  title: Text(d.name),
-                  trailing: const Icon(Icons.chevron_right),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  onTap: () {
-                    final loc = LocationModel(
-                      latitude: d.latitude,
-                      longitude: d.longitude,
-                      regionId: _selectedRegion!.id,
-                      districtId: d.id,
-                      cityName: d.name,
-                      regionName: _selectedRegion!.name,
-                      isGps: false,
-                    );
-                    widget.onSelected(loc);
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }
