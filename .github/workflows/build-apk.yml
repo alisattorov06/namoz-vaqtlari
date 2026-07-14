@@ -43,28 +43,12 @@ jobs:
 
       - name: Build release APK
         shell: bash
-        run: |
-          set -o pipefail
-          flutter build apk --release --verbose 2>&1 | tee build-apk.log
+        run: flutter build apk --release
 
       - name: Locate APK
-        if: success()
-        run: |
-          echo "Generated APK files:"
-          find build -type f -name "*.apk" -print
-          test -n "$(find build -type f -name '*.apk' -print -quit)"
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-apk-log
-          path: build-apk.log
-          retention-days: 7
-          if-no-files-found: ignore
+        run: find build -type f -name '*.apk' -print
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: namoz-vaqtlari-apk
