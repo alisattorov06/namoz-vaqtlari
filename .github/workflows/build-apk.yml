@@ -32,26 +32,22 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Flutter diagnostics
-        run: flutter doctor -v
-
       - name: Clean
         run: flutter clean
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build release APK
-        shell: bash
-        run: flutter build apk --release
+      - name: Generate localization
+        run: flutter gen-l10n
 
-      - name: Locate APK
-        run: find build -type f -name '*.apk' -print
+      - name: Build debug APK
+        run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: namoz-vaqtlari-apk
-          path: build/**/*.apk
+          name: namoz-vaqtlari-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
           if-no-files-found: error
