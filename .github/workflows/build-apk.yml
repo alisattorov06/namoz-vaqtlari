@@ -1,8 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Validate and Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -25,12 +23,14 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup Flutter
+      - name: Setup Flutter stable
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.1'
           channel: stable
           cache: true
+
+      - name: Flutter version
+        run: flutter --version
 
       - name: Clean
         run: flutter clean
@@ -40,6 +40,12 @@ jobs:
 
       - name: Generate localization
         run: flutter gen-l10n
+
+      - name: Analyze all Dart code
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run tests
+        run: flutter test
 
       - name: Build debug APK
         run: flutter build apk --debug
