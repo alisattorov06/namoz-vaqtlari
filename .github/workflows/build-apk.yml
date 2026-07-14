@@ -42,7 +42,17 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release --verbose 2>&1 | tee build-apk.log
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release --verbose 2>&1 | tee build-apk.log
+
+      - name: Locate APK
+        if: success()
+        run: |
+          echo "Generated APK files:"
+          find build -type f -name "*.apk" -print
+          test -n "$(find build -type f -name '*.apk' -print -quit)"
 
       - name: Upload build log
         if: always()
@@ -58,6 +68,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: namoz-vaqtlari-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/**/*.apk
           retention-days: 30
           if-no-files-found: error
