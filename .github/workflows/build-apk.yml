@@ -1,6 +1,8 @@
 name: Build APK
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -47,13 +49,13 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build release APK
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: namoz-vaqtlari-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: namoz-vaqtlari-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
           if-no-files-found: error
