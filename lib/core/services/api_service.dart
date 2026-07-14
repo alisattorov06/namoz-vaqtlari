@@ -7,25 +7,15 @@ import 'package:namoz_vaqtlari/core/models/prayer_time_model.dart';
 
 /// API xizmati - namoz vaqtlarini olish
 class ApiService {
-  // TODO: API manzilini shu yerga kiriting
   static const String _baseUrl = 'https://api.aladhan.com/v1';
-
-  // Fallback
   static const String _fallbackUrl = 'https://api.pray.zone/v2';
 
   /// Internet mavjudmi
   Future<bool> hasInternet() async {
     try {
       final result = await Connectivity().checkConnectivity();
-      // result List<ConnectivityResult> bo'lishi mumkin (yangi versiya)
-      // yoki ConnectivityResult bo'lishi mumkin (eski versiya)
-      if (result == ConnectivityResult.none) return false;
-      if (result.contains(ConnectivityResult.none)) {
-        return result.length > 1;
-      }
-      return true;
+      return result != ConnectivityResult.none;
     } catch (_) {
-      // Xatolik bo'lsa, urinib ko'ramiz
       return true;
     }
   }
@@ -36,9 +26,7 @@ class ApiService {
     required double longitude,
     required LocationModel location,
   }) async {
-    if (!await hasInternet()) {
-      return null;
-    }
+    if (!await hasInternet()) return null;
 
     try {
       final url = Uri.parse(
@@ -47,12 +35,11 @@ class ApiService {
       final response = await http
           .get(url, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 15));
-
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         return _parseAladhanResponse(data, location);
       }
-    } catch (e) {
+    } catch (_) {
       try {
         return await _getFromFallback(latitude, longitude, location);
       } catch (_) {
@@ -67,47 +54,47 @@ class ApiService {
     double lng,
     LocationModel location,
   ) async {
-    try {
-      final url = Uri.parse(
-        '$_fallbackUrl/times/today.json?longitude=$lng&latitude=$lat&elevation=0',
-      );
-      final response = await http
-          .get(url, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return _parsePrayZoneResponse(data, location);
-      }
-    } catch (_) {}
+    final url = Uri.parse(
+      '$_fallbackUrl/times/today.json?longitude=$lng&latitude=$lat&elevation=0',
+    );
+    final response = await http
+        .get(url, headers: {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parsePrayZoneResponse(data, location);
+    }
     return null;
   }
 
   DailyPrayerTimes? _parseAladhanResponse(
-      Map<String, dynamic> data, LocationModel location) {
+    Map<String, dynamic> data,
+    LocationModel location,
+  ) {
     try {
-      final timings = data['data']['timings'] as Map<String, dynamic>;
-      final date = data['data']['date'] as Map<String, dynamic>;
+      final responseData = data['data'] as Map<String, dynamic>;
+      final timings = responseData['timings'] as Map<String, dynamic>;
+      final date = responseData['date'] as Map<String, dynamic>;
       final hijri = date['hijri'] as Map<String, dynamic>;
-
+      final month = hijri['month'] as Map<String, dynamic>;
       final today = DateTime.now();
-      final hijriDate =
-          '${hijri['day']} ${hijri['month']['en']} ${hijri['year']}';
+      final hijriDate = '${hijri['day']} ${month['en']} ${hijri['year']}';
 
       return DailyPrayerTimes(
         date: today,
         hijriDate: hijriDate,
         location: location,
         prayers: [
-          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr'], today)),
+          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr']?.toString(), today)),
           PrayerTime(
-              name: 'Quyosh',
-              time: _parseTime(timings['Sunrise'], today),
-              isAlarmEnabled: false),
-          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr'], today)),
-          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr'], today)),
-          PrayerTime(
-              name: 'Shom', time: _parseTime(timings['Maghrib'], today)),
-          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha'], today)),
+            name: 'Quyosh',
+            time: _parseTime(timings['Sunrise']?.toString(), today),
+            isAlarmEnabled: false,
+          ),
+          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr']?.toString(), today)),
+          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr']?.toString(), today)),
+          PrayerTime(name: 'Shom', time: _parseTime(timings['Maghrib']?.toString(), today)),
+          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha']?.toString(), today)),
         ],
         source: 'api',
       );
@@ -117,11 +104,13 @@ class ApiService {
   }
 
   DailyPrayerTimes? _parsePrayZoneResponse(
-      Map<String, dynamic> data, LocationModel location) {
+    Map<String, dynamic> data,
+    LocationModel location,
+  ) {
     try {
-      final results = data['results'] as List;
+      final results = data['results'] as List<dynamic>;
       if (results.isEmpty) return null;
-      final timings = results[0] as Map<String, dynamic>;
+      final timings = results.first as Map<String, dynamic>;
       final today = DateTime.now();
 
       return DailyPrayerTimes(
@@ -129,16 +118,16 @@ class ApiService {
         hijriDate: '${today.day}/${today.month}/${today.year}',
         location: location,
         prayers: [
-          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr'], today)),
+          PrayerTime(name: 'Bomdod', time: _parseTime(timings['Fajr']?.toString(), today)),
           PrayerTime(
-              name: 'Quyosh',
-              time: _parseTime(timings['Sunrise'], today),
-              isAlarmEnabled: false),
-          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr'], today)),
-          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr'], today)),
-          PrayerTime(
-              name: 'Shom', time: _parseTime(timings['Maghrib'], today)),
-          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha'], today)),
+            name: 'Quyosh',
+            time: _parseTime(timings['Sunrise']?.toString(), today),
+            isAlarmEnabled: false,
+          ),
+          PrayerTime(name: 'Peshin', time: _parseTime(timings['Dhuhr']?.toString(), today)),
+          PrayerTime(name: 'Asr', time: _parseTime(timings['Asr']?.toString(), today)),
+          PrayerTime(name: 'Shom', time: _parseTime(timings['Maghrib']?.toString(), today)),
+          PrayerTime(name: 'Xufton', time: _parseTime(timings['Isha']?.toString(), today)),
         ],
         source: 'api',
       );
@@ -149,16 +138,13 @@ class ApiService {
 
   DateTime _parseTime(String? timeStr, DateTime date) {
     if (timeStr == null) return date;
-    final cleanTime = timeStr.split(' ')[0];
+    final cleanTime = timeStr.split(' ').first;
     final parts = cleanTime.split(':');
     if (parts.length < 2) return date;
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-    );
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return date;
+    return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
   Future<List<DailyPrayerTimes>> getWeeklyPrayerTimes({
@@ -177,9 +163,9 @@ class ApiService {
         );
         final response = await http
             .get(url, headers: {'Accept': 'application/json'})
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 15));
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
           final parsed = _parseAladhanResponse(data, location);
           if (parsed != null) result.add(parsed);
         }
@@ -192,12 +178,20 @@ class ApiService {
 
   String getHijriDate({int offsetDays = 0}) {
     const months = [
-      'Muharram', 'Safar', "Robi'ul-avval", "Robi'ul-oxir",
-      'Jumodiyul-avval', 'Jumodiyul-oxir', 'Rajab', "Sha'bon",
-      'Ramazon', 'Shavvol', 'Zil-qa\'da', 'Zil-hajja'
+      'Muharram',
+      'Safar',
+      "Robi'ul-avval",
+      "Robi'ul-oxir",
+      'Jumodiyul-avval',
+      'Jumodiyul-oxir',
+      'Rajab',
+      "Sha'bon",
+      'Ramazon',
+      'Shavvol',
+      "Zil-qa'da",
+      'Zil-hajja',
     ];
-    final today = DateTime.now();
-    final date = today.add(Duration(days: offsetDays));
+    final date = DateTime.now().add(Duration(days: offsetDays));
     final julianDay = date.difference(DateTime(622, 7, 16)).inDays;
     final hijriYear = (julianDay / 354.37).floor();
     final dayOfYear = julianDay - (hijriYear * 354);
